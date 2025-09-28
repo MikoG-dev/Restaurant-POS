@@ -1,0 +1,1787 @@
+{% extends "base.html" %} {% block title %}Settings{% endblock %} {% block
+content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">Settings</h2>
+      <p class="text-muted mb-0">Configure your restaurant system</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Settings Navigation -->
+    <div class="col-md-3">
+      <div class="card">
+        <div class="card-body p-0">
+          <div class="list-group list-group-flush">
+            <a
+              href="#restaurant"
+              class="list-group-item list-group-item-action active"
+              data-bs-toggle="pill"
+            >
+              <i class="bi bi-shop me-2"></i>Restaurant Info
+            </a>
+            <a
+              href="#tables"
+              class="list-group-item list-group-item-action"
+              data-bs-toggle="pill"
+            >
+              <i class="bi bi-table me-2"></i>Tables
+            </a>
+            <a
+              href="#waiters"
+              class="list-group-item list-group-item-action"
+              data-bs-toggle="pill"
+            >
+              <i class="bi bi-people me-2"></i>Waiters
+            </a>
+            <a
+              href="#users"
+              class="list-group-item list-group-item-action"
+              data-bs-toggle="pill"
+            >
+              <i class="bi bi-person-gear me-2"></i>Users
+            </a>
+            <!-- System Settings Navigation Link - Commented out for future use
+            <a
+              href="#system"
+              class="list-group-item list-group-item-action"
+              data-bs-toggle="pill"
+            >
+              <i class="bi bi-gear me-2"></i>System
+            </a>
+            -->
+            <a
+              href="#backup"
+              class="list-group-item list-group-item-action"
+              data-bs-toggle="pill"
+            >
+              <i class="bi bi-cloud-download me-2"></i>Backup
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Content -->
+    <div class="col-md-9">
+      <div class="tab-content">
+        <!-- Restaurant Info -->
+        <div class="tab-pane fade show active" id="restaurant">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="card-title mb-0">Restaurant Information</h5>
+            </div>
+            <div class="card-body">
+              <form id="restaurantForm">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="restaurantName" class="form-label fw-semibold"
+                        >Restaurant Name</label
+                      >
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="restaurantName"
+                        value="The Golden Fork"
+                      />
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label
+                        for="restaurantPhone"
+                        class="form-label fw-semibold"
+                        >Phone Number</label
+                      >
+                      <input
+                        type="tel"
+                        class="form-control"
+                        id="restaurantPhone"
+                        value="+1 (555) 123-4567"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="restaurantAddress" class="form-label fw-semibold"
+                    >Address</label
+                  >
+                  <textarea
+                    class="form-control"
+                    id="restaurantAddress"
+                    rows="3"
+                  >
+123 Main Street
+Downtown City, State 12345</textarea
+                  >
+                </div>
+
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="taxRate" class="form-label fw-semibold"
+                        >Tax Rate (%)</label
+                      >
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="taxRate"
+                        step="0.01"
+                        value="8.25"
+                      />
+                    </div>
+                  </div>
+                  <!-- Currency dropdown field - Hidden from UI but accessible in backend -->
+                  <!--
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="currency" class="form-label fw-semibold"
+                        >Currency</label
+                      >
+                      <select class="form-select" id="currency">
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                      </select>
+                    </div>
+                  </div>
+                  -->
+                </div>
+
+                <!-- Logo Upload Section -->
+                <div class="mb-3">
+                  <label for="restaurantLogo" class="form-label fw-semibold"
+                    >Restaurant Logo</label
+                  >
+                  <input
+                    type="file"
+                    class="form-control"
+                    id="restaurantLogo"
+                    accept="image/jpeg,image/jpg,image/png,image/gif"
+                  />
+                  <div class="form-text">
+                    Upload your restaurant logo (JPG, PNG, GIF - Max 2MB). Logo
+                    will appear on printed receipts.
+                  </div>
+                  <div id="logoPreview" class="mt-2" style="display: none">
+                    <img
+                      id="logoPreviewImg"
+                      src=""
+                      alt="Logo Preview"
+                      style="
+                        max-width: 200px;
+                        max-height: 100px;
+                        border: 1px solid #ddd;
+                        border-radius: 4px;
+                        padding: 5px;
+                      "
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger ms-2"
+                      id="removeLogo"
+                    >
+                      <i class="bi bi-trash"></i> Remove
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Bank Account Information Section -->
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="cbeAccount" class="form-label fw-semibold"
+                        >CBE Bank Account Number</label
+                      >
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="cbeAccount"
+                        placeholder="Enter CBE account number"
+                      />
+                      <div class="form-text">
+                        Commercial Bank of Ethiopia account number for customer
+                        payments.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label
+                        for="telebirrAccount"
+                        class="form-label fw-semibold"
+                        >Telebirr Account Number</label
+                      >
+                      <input
+                        type="tel"
+                        class="form-control"
+                        id="telebirrAccount"
+                        placeholder="Enter phone number (e.g., +251912345678)"
+                      />
+                      <div class="form-text">
+                        Telebirr phone number for digital payments.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-check-circle me-2"></i>Save Restaurant Info
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tables Management -->
+        <div class="tab-pane fade" id="tables">
+          <div class="card">
+            <div
+              class="card-header d-flex justify-content-between align-items-center"
+            >
+              <h5 class="card-title mb-0">Tables Management</h5>
+              <button
+                class="btn btn-primary btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#addTableModal"
+              >
+                <i class="bi bi-plus-circle me-2"></i>Add Table
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Table Number</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tablesTableBody">
+                    <!-- Tables will be loaded here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Waiters Management -->
+        <div class="tab-pane fade" id="waiters">
+          <div class="card">
+            <div
+              class="card-header d-flex justify-content-between align-items-center"
+            >
+              <h5 class="card-title mb-0">Waiters Management</h5>
+              <button
+                class="btn btn-primary btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#addWaiterModal"
+              >
+                <i class="bi bi-plus-circle me-2"></i>Add Waiter
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Name</th>
+                      <th>Phone</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="waitersTableBody">
+                    <!-- Waiters will be loaded here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Management -->
+        <div class="tab-pane fade" id="users">
+          <div class="card">
+            <div
+              class="card-header d-flex justify-content-between align-items-center"
+            >
+              <h5 class="card-title mb-0">User Management</h5>
+              <button
+                class="btn btn-primary btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#addUserModal"
+              >
+                <i class="bi bi-plus-circle me-2"></i>Add User
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Last Login</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTableBody">
+                    <!-- Users will be loaded here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Settings - Commented out for future use
+        <div class="tab-pane fade" id="system">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="card-title mb-0">System Settings</h5>
+            </div>
+            <div class="card-body">
+              <form id="systemForm">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold"
+                        >Receipt Printer</label
+                      >
+                      <select class="form-select" id="printerType">
+                        <option value="thermal">Thermal Printer (58mm)</option>
+                        <option value="thermal80">
+                          Thermal Printer (80mm)
+                        </option>
+                        <option value="regular">Regular Printer</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold"
+                        >Auto-refresh Dashboard</label
+                      >
+                      <select class="form-select" id="autoRefresh">
+                        <option value="30">Every 30 seconds</option>
+                        <option value="60">Every minute</option>
+                        <option value="300">Every 5 minutes</option>
+                        <option value="0">Disabled</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="enableKitchenPrint"
+                          checked
+                        />
+                        <label
+                          class="form-check-label fw-semibold"
+                          for="enableKitchenPrint"
+                        >
+                          Enable Kitchen Order Printing
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="enableSounds"
+                          checked
+                        />
+                        <label
+                          class="form-check-label fw-semibold"
+                          for="enableSounds"
+                        >
+                          Enable System Sounds
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="bi bi-check-circle me-2"></i>Save System Settings
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        -->
+
+        <!-- Backup & Restore -->
+        <div class="tab-pane fade" id="backup">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Database Backup</h5>
+                </div>
+                <div class="card-body">
+                  <p class="text-muted">
+                    Create a backup of your restaurant data including orders,
+                    menu items, and settings.
+                  </p>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Backup Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="backupName"
+                      placeholder="backup_2024_01_15"
+                    />
+                  </div>
+
+                  <button
+                    class="btn btn-success w-100"
+                    onclick="createBackup()"
+                  >
+                    <i class="bi bi-cloud-download me-2"></i>Create Backup
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TEMPORARILY DISABLED: Database Restore functionality
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Database Restore</h5>
+                </div>
+                <div class="card-body">
+                  <p class="text-muted">
+                    Restore your restaurant data from a previous backup file.
+                  </p>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold"
+                      >Select Backup File</label
+                    >
+                    <input
+                      type="file"
+                      class="form-control"
+                      id="restoreFile"
+                      accept=".db,.sql"
+                    />
+                  </div>
+
+                  <button
+                    class="btn btn-warning w-100"
+                    onclick="restoreBackup()"
+                  >
+                    <i class="bi bi-cloud-upload me-2"></i>Restore Backup
+                  </button>
+
+                  <div class="alert alert-warning mt-3" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> Restoring will overwrite all
+                    current data!
+                  </div>
+                </div>
+              </div>
+            </div>
+            END TEMPORARILY DISABLED -->
+          </div>
+
+          <!-- Clear All Data -->
+          <div class="row mt-4">
+            <div class="col-md-12">
+              <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                  <h5 class="card-title mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Clear All
+                    Data
+                  </h5>
+                </div>
+                <div class="card-body">
+                  <p class="text-muted">
+                    Permanently remove all order history and transaction data
+                    while preserving your menu items, waiter information, table
+                    configurations, and system settings. This action cannot be
+                    undone.
+                  </p>
+
+                  <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> This will permanently delete all
+                    orders, payments, and order history. Menu items, waiters,
+                    tables, and settings will be preserved.
+                  </div>
+
+                  <button
+                    class="btn btn-danger"
+                    onclick="showClearDataConfirmation()"
+                  >
+                    <i class="bi bi-trash me-2"></i>Clear All Order Data
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Backups -->
+          <div class="card mt-4">
+            <div class="card-header">
+              <h5 class="card-title mb-0">Recent Backups</h5>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Backup Name</th>
+                      <th>Date Created</th>
+                      <th>Size</th>
+                    </tr>
+                  </thead>
+                  <tbody id="backupsTableBody">
+                    <tr>
+                      <td colspan="3" class="text-center text-muted">
+                        No backups found
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Table Modal -->
+<div class="modal fade" id="addTableModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Table</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <form id="tableForm">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="tableNumber" class="form-label fw-semibold"
+              >Table Number</label
+            >
+            <input
+              type="number"
+              class="form-control"
+              id="tableNumber"
+              required
+            />
+          </div>
+          <!-- Capacity field commented out for future reference
+          <div class="mb-3">
+            <label for="tableCapacity" class="form-label fw-semibold"
+              >Capacity (Optional)</label
+            >
+            <input
+              type="number"
+              class="form-control"
+              id="tableCapacity"
+              min="1"
+              max="20"
+            />
+          </div>
+          -->
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">Add Table</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Waiter Modal -->
+<div class="modal fade" id="addWaiterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Waiter</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <form id="waiterForm">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="waiterName" class="form-label fw-semibold"
+              >Waiter Name</label
+            >
+            <input type="text" class="form-control" id="waiterName" required />
+          </div>
+          <div class="mb-3">
+            <label for="waiterPhone" class="form-label fw-semibold"
+              >Phone Number (Optional)</label
+            >
+            <input type="tel" class="form-control" id="waiterPhone" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">Add Waiter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Waiter Modal -->
+<div class="modal fade" id="editWaiterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Waiter</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <form id="editWaiterForm">
+        <div class="modal-body">
+          <input type="hidden" id="editWaiterId" />
+          <div class="mb-3">
+            <label for="editWaiterName" class="form-label fw-semibold"
+              >Waiter Name</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              id="editWaiterName"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="editWaiterPhone" class="form-label fw-semibold"
+              >Phone Number (Optional)</label
+            >
+            <input type="tel" class="form-control" id="editWaiterPhone" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">Update Waiter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New User</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <form id="userForm">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="username" class="form-label fw-semibold"
+              >Username</label
+            >
+            <input type="text" class="form-control" id="username" required />
+          </div>
+          <div class="mb-3">
+            <label for="password" class="form-label fw-semibold"
+              >Password</label
+            >
+            <input
+              type="password"
+              class="form-control"
+              id="password"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="userRole" class="form-label fw-semibold">Role</label>
+            <select class="form-select" id="userRole" required>
+              <option value="cashier">Cashier</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">Add User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit User</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <form id="editUserForm">
+        <div class="modal-body">
+          <input type="hidden" id="editUserId" />
+          <div class="mb-3">
+            <label for="editUsername" class="form-label fw-semibold"
+              >Username</label
+            >
+            <input
+              type="text"
+              class="form-control"
+              id="editUsername"
+              required
+            />
+          </div>
+          <div class="mb-3">
+            <label for="editPassword" class="form-label fw-semibold"
+              >Password (Leave blank to keep current)</label
+            >
+            <input type="password" class="form-control" id="editPassword" />
+          </div>
+          <div class="mb-3">
+            <label for="editUserRole" class="form-label fw-semibold"
+              >Role</label
+            >
+            <select class="form-select" id="editUserRole" required>
+              <option value="cashier">Cashier</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">Update User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    loadTables();
+    loadWaiters();
+    loadUsers();
+    loadBackups();
+    setupEventListeners();
+  });
+
+  function setupEventListeners() {
+    // Form submissions with null checks to prevent errors
+    const restaurantForm = document.getElementById("restaurantForm");
+    if (restaurantForm) {
+      restaurantForm.addEventListener("submit", saveRestaurantInfo);
+    }
+
+    // System form event listener - commented out since system form is hidden
+    // const systemForm = document.getElementById("systemForm");
+    // if (systemForm) {
+    //   systemForm.addEventListener("submit", saveSystemSettings);
+    // }
+
+    const tableForm = document.getElementById("tableForm");
+    if (tableForm) {
+      tableForm.addEventListener("submit", addTable);
+    }
+
+    const waiterForm = document.getElementById("waiterForm");
+    if (waiterForm) {
+      waiterForm.addEventListener("submit", addWaiter);
+    }
+
+    const editWaiterForm = document.getElementById("editWaiterForm");
+    if (editWaiterForm) {
+      editWaiterForm.addEventListener("submit", editWaiterSubmit);
+    }
+
+    const userForm = document.getElementById("userForm");
+    if (userForm) {
+      userForm.addEventListener("submit", addUser);
+    }
+
+    const editUserForm = document.getElementById("editUserForm");
+    if (editUserForm) {
+      editUserForm.addEventListener("submit", editUserSubmit);
+    }
+
+    // Logo functionality with null checks
+    const restaurantLogo = document.getElementById("restaurantLogo");
+    if (restaurantLogo) {
+      restaurantLogo.addEventListener("change", function () {
+        previewLogo(this);
+      });
+    }
+
+    const removeLogo = document.getElementById("removeLogo");
+    if (removeLogo) {
+      removeLogo.addEventListener("click", removeLogo);
+    }
+  }
+
+  async function loadTables() {
+    try {
+      const response = await fetch("/api/tables");
+      const tables = await response.json();
+
+      const tbody = document.getElementById("tablesTableBody");
+      tbody.innerHTML = tables
+        .map(
+          (table) => `
+                <tr>
+                    <td class="fw-semibold">Table ${table.table_number}</td>
+                    <td>
+                        <span class="badge bg-${
+                          table.active ? "success" : "secondary"
+                        }">
+                            ${table.active ? "Active" : "Inactive"}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-danger" onclick="deleteTable(${
+                              table.id
+                            })" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `
+        )
+        .join("");
+    } catch (error) {
+      console.error("Error loading tables:", error);
+    }
+  }
+
+  async function loadWaiters() {
+    try {
+      const response = await fetch("/api/waiters");
+      const waiters = await response.json();
+
+      const tbody = document.getElementById("waitersTableBody");
+      tbody.innerHTML = waiters
+        .map(
+          (waiter) => `
+                <tr>
+                    <td class="fw-semibold">${waiter.name}</td>
+                    <td>${waiter.phone || "N/A"}</td>
+                    <td>
+                        <span class="badge bg-${
+                          waiter.active ? "success" : "secondary"
+                        }">
+                            ${waiter.active ? "Active" : "Inactive"}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editWaiter(${
+                              waiter.id
+                            })" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="deleteWaiter(${
+                              waiter.id
+                            })" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `
+        )
+        .join("");
+    } catch (error) {
+      console.error("Error loading waiters:", error);
+    }
+  }
+
+  async function loadUsers() {
+    try {
+      const response = await fetch("/api/users");
+      const users = await response.json();
+
+      const tbody = document.getElementById("usersTableBody");
+      tbody.innerHTML = users
+        .map(
+          (user) => `
+                <tr>
+                    <td class="fw-semibold">${user.username}</td>
+                    <td>
+                        <span class="badge bg-primary">${
+                          user.role || "Cashier"
+                        }</span>
+                    </td>
+                    <td class="text-muted">${user.last_login || "Never"}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editUser(${
+                              user.id
+                            })" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="deleteUser(${
+                              user.id
+                            })" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `
+        )
+        .join("");
+    } catch (error) {
+      console.error("Error loading users:", error);
+    }
+  }
+
+  async function loadBackups() {
+    try {
+      const response = await fetch("/api/backup/list");
+      const data = await response.json();
+
+      const tbody = document.getElementById("backupsTableBody");
+
+      if (data.success && data.backups && data.backups.length > 0) {
+        // Show only the last 5 backup entries
+        const recentBackups = data.backups.slice(0, 5);
+
+        tbody.innerHTML = recentBackups
+          .map(
+            (backup) => `
+                  <tr>
+                      <td class="fw-semibold">${backup.filename}</td>
+                      <td class="text-muted">${backup.created_at}</td>
+                      <td class="text-muted">${backup.size_mb} MB</td>
+                  </tr>
+              `
+          )
+          .join("");
+      } else {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="3" class="text-center text-muted">
+              No backups found
+            </td>
+          </tr>
+        `;
+      }
+    } catch (error) {
+      console.error("Error loading backups:", error);
+      const tbody = document.getElementById("backupsTableBody");
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="3" class="text-center text-danger">
+            Error loading backups
+          </td>
+        </tr>
+      `;
+    }
+  }
+
+  async function saveRestaurantInfo(e) {
+    e.preventDefault();
+
+    // Create FormData to handle file upload
+    const formData = new FormData();
+    formData.append(
+      "restaurant_name",
+      document.getElementById("restaurantName").value
+    );
+    formData.append(
+      "restaurant_phone",
+      document.getElementById("restaurantPhone").value
+    );
+    formData.append(
+      "restaurant_address",
+      document.getElementById("restaurantAddress").value
+    );
+    formData.append(
+      "tax_rate",
+      parseFloat(document.getElementById("taxRate").value)
+    );
+    formData.append("cbe_account", document.getElementById("cbeAccount").value);
+    formData.append(
+      "telebirr_account",
+      document.getElementById("telebirrAccount").value
+    );
+
+    // Add logo file if selected
+    const logoFile = document.getElementById("restaurantLogo").files[0];
+    if (logoFile) {
+      // Validate file size (2MB limit)
+      if (logoFile.size > 2 * 1024 * 1024) {
+        showError("Logo file size must be less than 2MB");
+        return;
+      }
+      formData.append("logo", logoFile);
+    }
+
+    try {
+      const response = await fetch("/api/settings/restaurant", {
+        method: "POST",
+        body: formData, // Use FormData instead of JSON
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showSuccess("Restaurant information saved successfully");
+        // Update logo preview if new logo was uploaded
+        if (result.logo_url) {
+          updateLogoPreview(result.logo_url);
+        }
+      } else {
+        showError(
+          "Failed to save restaurant information: " +
+            (result.error || "Unknown error")
+        );
+      }
+    } catch (error) {
+      console.error("Error saving restaurant info:", error);
+      showError("Failed to save restaurant information");
+    }
+  }
+
+  async function saveSystemSettings(e) {
+    e.preventDefault();
+
+    const data = {
+      printer_type: document.getElementById("printerType").value,
+      auto_refresh: parseInt(document.getElementById("autoRefresh").value),
+      enable_kitchen_print:
+        document.getElementById("enableKitchenPrint").checked,
+      enable_sounds: document.getElementById("enableSounds").checked,
+    };
+
+    try {
+      const response = await fetch("/api/settings/system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        showSuccess("System settings saved successfully");
+      } else {
+        showError("Failed to save system settings");
+      }
+    } catch (error) {
+      console.error("Error saving system settings:", error);
+      showError("Failed to save system settings");
+    }
+  }
+
+  async function addTable(e) {
+    e.preventDefault();
+
+    const data = {
+      table_number: parseInt(document.getElementById("tableNumber").value),
+      // capacity: parseInt(document.getElementById("tableCapacity").value) || null, // Commented out for future reference
+    };
+
+    try {
+      const response = await fetch("/api/tables", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        bootstrap.Modal.getInstance(
+          document.getElementById("addTableModal")
+        ).hide();
+        document.getElementById("tableForm").reset();
+        loadTables();
+        showSuccess("Table added successfully");
+      } else {
+        showError("Failed to add table");
+      }
+    } catch (error) {
+      console.error("Error adding table:", error);
+      showError("Failed to add table");
+    }
+  }
+
+  async function addWaiter(e) {
+    e.preventDefault();
+
+    const data = {
+      name: document.getElementById("waiterName").value,
+      phone: document.getElementById("waiterPhone").value || null,
+    };
+
+    try {
+      const response = await fetch("/api/waiters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        bootstrap.Modal.getInstance(
+          document.getElementById("addWaiterModal")
+        ).hide();
+        document.getElementById("waiterForm").reset();
+        loadWaiters();
+        showSuccess("Waiter added successfully");
+      } else {
+        showError("Failed to add waiter");
+      }
+    } catch (error) {
+      console.error("Error adding waiter:", error);
+      showError("Failed to add waiter");
+    }
+  }
+
+  async function addUser(e) {
+    e.preventDefault();
+
+    const data = {
+      username: document.getElementById("username").value,
+      password: document.getElementById("password").value,
+      role: document.getElementById("userRole").value,
+    };
+
+    try {
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        bootstrap.Modal.getInstance(
+          document.getElementById("addUserModal")
+        ).hide();
+        document.getElementById("userForm").reset();
+        loadUsers();
+        showSuccess("User added successfully");
+      } else {
+        showError("Failed to add user");
+      }
+    } catch (error) {
+      console.error("Error adding user:", error);
+      showError("Failed to add user");
+    }
+  }
+
+  async function createBackup() {
+    const backupName =
+      document.getElementById("backupName").value ||
+      `backup_${new Date().toISOString().split("T")[0]}`;
+
+    try {
+      const response = await fetch("/api/backup/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: backupName }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${backupName}.db`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        // Clear the backup name input
+        document.getElementById("backupName").value = "";
+
+        // Refresh the backup list
+        loadBackups();
+
+        showSuccess("Backup created and downloaded successfully");
+      } else {
+        showError("Failed to create backup");
+      }
+    } catch (error) {
+      console.error("Error creating backup:", error);
+      showError("Failed to create backup");
+    }
+  }
+
+  /* TEMPORARILY DISABLED: restoreBackup function
+  async function restoreBackup() {
+    const fileInput = document.getElementById("restoreFile");
+    const file = fileInput.files[0];
+
+    if (!file) {
+      showError("Please select a backup file");
+      return;
+    }
+
+    if (
+      !confirm(
+        "Are you sure you want to restore this backup? This will overwrite all current data!"
+      )
+    ) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("backup_file", file);
+
+    try {
+      const response = await fetch("/api/backup/restore", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        showSuccess("Backup restored successfully. Please refresh the page.");
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        showError("Failed to restore backup");
+      }
+    } catch (error) {
+      console.error("Error restoring backup:", error);
+      showError("Failed to restore backup");
+    }
+  }
+  END TEMPORARILY DISABLED */
+
+  function showClearDataConfirmation() {
+    const confirmationHtml = `
+            <div class="modal fade" id="clearDataModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="bi bi-exclamation-triangle me-2"></i>Confirm Clear All Data
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-danger" role="alert">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>This action cannot be undone!</strong>
+                            </div>
+                            <p>You are about to permanently delete:</p>
+                            <ul class="text-danger">
+                                <li>All order history</li>
+                                <li>All payment records</li>
+                                <li>All transaction data</li>
+                            </ul>
+                            <p>The following will be <strong>preserved</strong>:</p>
+                            <ul class="text-success">
+                                <li>Menu items and categories</li>
+                                <li>Waiter information</li>
+                                <li>Table configurations</li>
+                                <li>System settings</li>
+                            </ul>
+                            <p class="mt-3">Type <strong>CLEAR ALL DATA</strong> to confirm:</p>
+                            <input type="text" class="form-control" id="clearDataConfirmText" placeholder="Type CLEAR ALL DATA">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-danger" onclick="clearAllData()" id="confirmClearBtn" disabled>
+                                <i class="bi bi-trash me-2"></i>Clear All Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+    // Remove existing modal if present
+    const existingModal = document.getElementById("clearDataModal");
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Add modal to page
+    document.body.insertAdjacentHTML("beforeend", confirmationHtml);
+
+    // Show modal
+    const modal = new bootstrap.Modal(
+      document.getElementById("clearDataModal")
+    );
+    modal.show();
+
+    // Enable/disable confirm button based on input
+    const confirmText = document.getElementById("clearDataConfirmText");
+    const confirmBtn = document.getElementById("confirmClearBtn");
+
+    confirmText.addEventListener("input", function () {
+      confirmBtn.disabled = this.value !== "CLEAR ALL DATA";
+    });
+
+    // Clean up modal when hidden
+    document
+      .getElementById("clearDataModal")
+      .addEventListener("hidden.bs.modal", function () {
+        this.remove();
+      });
+  }
+
+  async function clearAllData() {
+    try {
+      const response = await fetch("/api/backup/clear-all-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Hide modal
+        bootstrap.Modal.getInstance(
+          document.getElementById("clearDataModal")
+        ).hide();
+
+        showSuccess("All order data has been cleared successfully");
+      } else {
+        showError(result.error || "Failed to clear data");
+      }
+    } catch (error) {
+      console.error("Error clearing data:", error);
+      showError("Failed to clear data");
+    }
+  }
+
+  // Load settings when page loads
+  document.addEventListener("DOMContentLoaded", function () {
+    loadTables();
+    loadWaiters();
+    loadUsers();
+    loadSettings();
+  });
+
+  async function loadSettings() {
+    try {
+      const response = await fetch("/api/settings");
+      const result = await response.json();
+
+      if (result.success && result.settings) {
+        const settings = result.settings;
+
+        // Populate restaurant info fields with enhanced null checks and error handling
+        try {
+          const restaurantNameEl = document.getElementById("restaurantName");
+          if (restaurantNameEl && settings.restaurant_name) {
+            restaurantNameEl.value = settings.restaurant_name;
+          }
+        } catch (e) {
+          console.warn("Error setting restaurant name:", e);
+        }
+
+        try {
+          const restaurantPhoneEl = document.getElementById("restaurantPhone");
+          if (restaurantPhoneEl && settings.restaurant_phone) {
+            restaurantPhoneEl.value = settings.restaurant_phone;
+          }
+        } catch (e) {
+          console.warn("Error setting restaurant phone:", e);
+        }
+
+        try {
+          const restaurantAddressEl =
+            document.getElementById("restaurantAddress");
+          if (restaurantAddressEl && settings.restaurant_address) {
+            restaurantAddressEl.value = settings.restaurant_address;
+          }
+        } catch (e) {
+          console.warn("Error setting restaurant address:", e);
+        }
+
+        try {
+          const taxRateEl = document.getElementById("taxRate");
+          if (taxRateEl && settings.tax_rate) {
+            taxRateEl.value = settings.tax_rate;
+          }
+        } catch (e) {
+          console.warn("Error setting tax rate:", e);
+        }
+
+        // Load CBE account number
+        try {
+          const cbeAccountEl = document.getElementById("cbeAccount");
+          if (cbeAccountEl && settings.cbe_account) {
+            cbeAccountEl.value = settings.cbe_account;
+          }
+        } catch (e) {
+          console.warn("Error setting CBE account:", e);
+        }
+
+        // Load Telebirr account number
+        try {
+          const telebirrAccountEl = document.getElementById("telebirrAccount");
+          if (telebirrAccountEl && settings.telebirr_account) {
+            telebirrAccountEl.value = settings.telebirr_account;
+          }
+        } catch (e) {
+          console.warn("Error setting Telebirr account:", e);
+        }
+
+        // Load restaurant logo
+        try {
+          if (settings.restaurant_logo) {
+            updateLogoPreview(settings.restaurant_logo);
+          }
+        } catch (e) {
+          console.warn("Error setting restaurant logo:", e);
+        }
+
+        // Currency field is commented out in UI, so skip loading it
+        // const currencyEl = document.getElementById("currency");
+        // if (settings.currency && currencyEl) {
+        //   currencyEl.value = settings.currency;
+        // }
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  }
+
+  async function editWaiter(waiterId) {
+    try {
+      // Get waiter data from the current table
+      const response = await fetch("/api/waiters");
+      const waiters = await response.json();
+      const waiter = waiters.find((w) => w.id === waiterId);
+
+      if (waiter) {
+        document.getElementById("editWaiterId").value = waiter.id;
+        document.getElementById("editWaiterName").value = waiter.name;
+        document.getElementById("editWaiterPhone").value = waiter.phone || "";
+
+        const modal = new bootstrap.Modal(
+          document.getElementById("editWaiterModal")
+        );
+        modal.show();
+      }
+    } catch (error) {
+      console.error("Error loading waiter data:", error);
+      showError("Failed to load waiter data");
+    }
+  }
+
+  async function editWaiterSubmit(e) {
+    e.preventDefault();
+
+    const waiterId = document.getElementById("editWaiterId").value;
+    const data = {
+      name: document.getElementById("editWaiterName").value,
+      phone: document.getElementById("editWaiterPhone").value || null,
+    };
+
+    try {
+      const response = await fetch(`/api/waiters/${waiterId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        bootstrap.Modal.getInstance(
+          document.getElementById("editWaiterModal")
+        ).hide();
+        document.getElementById("editWaiterForm").reset();
+        loadWaiters();
+        showSuccess("Waiter updated successfully");
+      } else {
+        showError("Failed to update waiter");
+      }
+    } catch (error) {
+      console.error("Error updating waiter:", error);
+      showError("Failed to update waiter");
+    }
+  }
+
+  async function deleteWaiter(waiterId) {
+    if (confirm("Are you sure you want to delete this waiter?")) {
+      try {
+        const response = await fetch(`/api/waiters/${waiterId}`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          loadWaiters();
+          showSuccess("Waiter deleted successfully");
+        } else {
+          showError("Failed to delete waiter");
+        }
+      } catch (error) {
+        console.error("Error deleting waiter:", error);
+        showError("Failed to delete waiter");
+      }
+    }
+  }
+
+  async function deleteTable(tableId) {
+    if (confirm("Are you sure you want to delete this table?")) {
+      try {
+        const response = await fetch(`/api/tables/${tableId}`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          loadTables();
+          showSuccess("Table deleted successfully");
+        } else {
+          showError("Failed to delete table");
+        }
+      } catch (error) {
+        console.error("Error deleting table:", error);
+        showError("Failed to delete table");
+      }
+    }
+  }
+
+  function editUser(userId, username, role) {
+    document.getElementById("editUserId").value = userId;
+    document.getElementById("editUsername").value = username;
+    document.getElementById("editUserRole").value = role;
+    document.getElementById("editPassword").value = "";
+
+    const modal = new bootstrap.Modal(document.getElementById("editUserModal"));
+    modal.show();
+  }
+
+  async function editUserSubmit(event) {
+    event.preventDefault();
+
+    const userId = document.getElementById("editUserId").value;
+    const username = document.getElementById("editUsername").value;
+    const password = document.getElementById("editPassword").value;
+    const role = document.getElementById("editUserRole").value;
+
+    const userData = {
+      username: username,
+      role: role,
+    };
+
+    // Only include password if it's provided
+    if (password.trim()) {
+      userData.password = password;
+    }
+
+    try {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (response.ok) {
+        const modal = bootstrap.Modal.getInstance(
+          document.getElementById("editUserModal")
+        );
+        modal.hide();
+        loadUsers();
+        showSuccess("User updated successfully");
+      } else {
+        const errorData = await response.json();
+        showError(errorData.error || "Failed to update user");
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+      showError("Failed to update user");
+    }
+  }
+
+  async function deleteUser(userId) {
+    if (confirm("Are you sure you want to delete this user?")) {
+      try {
+        const response = await fetch(`/api/users/${userId}`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          loadUsers();
+          showSuccess("User deleted successfully");
+        } else {
+          const errorData = await response.json();
+          showError(errorData.error || "Failed to delete user");
+        }
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        showError("Failed to delete user");
+      }
+    }
+  }
+
+  function showSuccess(message) {
+    showToast(message, "success");
+  }
+
+  function showError(message) {
+    showToast(message, "danger");
+  }
+
+  function showToast(message, type) {
+    const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-${
+                          type === "success"
+                            ? "check-circle"
+                            : "exclamation-triangle"
+                        } me-2"></i>
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+    let toastContainer = document.getElementById("toastContainer");
+    if (!toastContainer) {
+      toastContainer = document.createElement("div");
+      toastContainer.id = "toastContainer";
+      toastContainer.className =
+        "toast-container position-fixed top-0 end-0 p-3";
+      toastContainer.style.zIndex = "9999";
+      document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.insertAdjacentHTML("beforeend", toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+
+    toastElement.addEventListener("hidden.bs.toast", function () {
+      this.remove();
+    });
+  }
+
+  // Logo handling functions
+  function previewLogo(input) {
+    const file = input.files[0];
+    const preview = document.getElementById("logoPreview");
+    const previewImg = document.getElementById("logoPreviewImg");
+    const removeBtn = document.getElementById("removeLogo");
+
+    if (file) {
+      // Validate file type
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        showError("Please select a valid image file (JPG, PNG, GIF)");
+        input.value = "";
+        return;
+      }
+
+      // Validate file size (2MB limit)
+      if (file.size > 2 * 1024 * 1024) {
+        showError("Logo file size must be less than 2MB");
+        input.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        previewImg.src = e.target.result;
+        preview.style.display = "block";
+        removeBtn.style.display = "inline-block";
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function removeLogo() {
+    const input = document.getElementById("restaurantLogo");
+    const preview = document.getElementById("logoPreview");
+    const previewImg = document.getElementById("logoPreviewImg");
+    const removeBtn = document.getElementById("removeLogo");
+
+    input.value = "";
+    previewImg.src = "";
+    preview.style.display = "none";
+    removeBtn.style.display = "none";
+  }
+
+  function updateLogoPreview(logoUrl) {
+    const preview = document.getElementById("logoPreview");
+    const previewImg = document.getElementById("logoPreviewImg");
+    const removeBtn = document.getElementById("removeLogo");
+
+    if (logoUrl) {
+      previewImg.src = logoUrl;
+      preview.style.display = "block";
+      removeBtn.style.display = "inline-block";
+    }
+  }
+</script>
+{% endblock %}

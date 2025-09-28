@@ -1,0 +1,156 @@
+{% extends "base.html" %} {% block title %}Login - Restaurant Cashier System{%
+endblock %} {% block content %}
+<div
+  class="container-fluid vh-100 d-flex align-items-center justify-content-center"
+  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+>
+  <div class="row w-100 justify-content-center">
+    <div class="col-md-4 col-lg-4">
+      <div class="card shadow-lg border-0" style="border-radius: 20px">
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <div
+              class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+              style="width: 80px; height: 80px"
+            >
+              <i class="bi bi-shop text-white" style="font-size: 2rem"></i>
+            </div>
+            <h3 class="fw-bold text-dark">Restaurant POS</h3>
+            <p class="text-muted">Cashier Login</p>
+          </div>
+
+          {% if error %}
+          <div
+            class="alert alert-danger alert-dismissible fade show"
+            role="alert"
+          >
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="alert"
+            ></button>
+          </div>
+          {% endif %}
+
+          <form method="POST" id="loginForm">
+            <div class="mb-3">
+              <label for="username" class="form-label fw-semibold"
+                >Username</label
+              >
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-person-fill text-muted"></i>
+                </span>
+                <input
+                  type="text"
+                  class="form-control border-start-0 ps-0"
+                  id="username"
+                  name="username"
+                  placeholder="Enter username"
+                  required
+                  autofocus
+                />
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label for="password" class="form-label fw-semibold"
+                >Password</label
+              >
+              <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-lock-fill text-muted"></i>
+                </span>
+                <input
+                  type="password"
+                  class="form-control border-start-0 ps-0"
+                  id="password"
+                  name="password"
+                  placeholder="Enter password"
+                  required
+                />
+                <button
+                  class="btn btn-outline-secondary border-start-0"
+                  type="button"
+                  id="togglePassword"
+                >
+                  <i class="bi bi-eye-fill"></i>
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              class="btn btn-primary w-100 py-3 fw-semibold"
+              style="border-radius: 12px"
+            >
+              <i class="bi bi-box-arrow-in-right me-2"></i>Login
+            </button>
+          </form>
+
+          <!-- <div class="mt-4 text-center">
+            <small class="text-muted">
+              <i class="bi bi-info-circle me-1"></i>
+              Default: admin / admin123
+            </small>
+          </div> -->
+        </div>
+      </div>
+
+      <div class="text-center mt-3">
+        <small class="text-white-50">
+          <i class="bi bi-shield-check me-1"></i>
+          Secure Local System
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  // Password visibility toggle
+  document
+    .getElementById("togglePassword")
+    .addEventListener("click", function () {
+      const passwordInput = document.getElementById("password");
+      const icon = this.querySelector("i");
+
+      if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        icon.className = "bi bi-eye-slash-fill";
+      } else {
+        passwordInput.type = "password";
+        icon.className = "bi bi-eye-fill";
+      }
+    });
+
+  // Form validation and loading state
+  document.getElementById("loginForm").addEventListener("submit", function (e) {
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+
+    submitBtn.innerHTML =
+      '<span class="spinner-border spinner-border-sm me-2"></span>Logging in...';
+    submitBtn.disabled = true;
+
+    // Re-enable button after 3 seconds in case of error
+    setTimeout(() => {
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
+    }, 3000);
+  });
+
+  // Auto-focus on username field
+  document.getElementById("username").focus();
+
+  // Enter key navigation
+  document
+    .getElementById("username")
+    .addEventListener("keypress", function (e) {
+      if (e.key === "Enter") {
+        document.getElementById("password").focus();
+      }
+    });
+</script>
+{% endblock %}

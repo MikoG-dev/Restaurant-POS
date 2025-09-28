@@ -1,0 +1,827 @@
+{% extends "base.html" %} {% block title %}POS - New Order{% endblock %} {%
+block content %}
+<div class="container-fluid">
+  <div class="row">
+    <!-- Menu Items Section -->
+    <div class="col-lg-8">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold mb-0">Menu Items</h4>
+        <div class="d-flex gap-2">
+          <input
+            type="text"
+            class="form-control"
+            id="searchMenu"
+            placeholder="Search items..."
+            style="width: 200px"
+          />
+          <select class="form-select" id="categoryFilter" style="width: 150px">
+            <option value="">All Categories</option>
+            <option value="food">Food</option>
+            <option value="drink">Drinks</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Menu Categories Tabs -->
+      <ul class="nav nav-pills mb-3" id="categoryTabs">
+        <li class="nav-item">
+          <button class="nav-link active" data-category="">All</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" data-category="food">Food</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link" data-category="drink">Drinks</button>
+        </li>
+      </ul>
+
+      <!-- Menu Items Grid -->
+      <div class="row" id="menuItemsGrid">
+        <div class="col-12 text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2 text-muted">Loading menu items...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Summary Section -->
+    <div class="col-lg-4">
+      <div class="order-summary p-4 sticky-top" style="top: 20px">
+        <h5 class="fw-bold mb-3">Current Order</h5>
+
+        <!-- Table and Waiter Selection -->
+        <div class="row mb-3">
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Table</label>
+            <select class="form-select" id="tableSelect" required>
+              <option value="">Select Table</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Waiter</label>
+            <select class="form-select" id="waiterSelect" required>
+              <option value="">Select Waiter</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Order Items -->
+        <div
+          class="order-items mb-3"
+          style="max-height: 300px; overflow-y: auto"
+        >
+          <div id="orderItemsList">
+            <div class="text-center text-muted py-4">
+              <i class="bi bi-cart3 fs-1 d-block mb-2 opacity-50"></i>
+              <p class="mb-0">No items added</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Total -->
+        <div class="border-top pt-3 mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Subtotal:</span>
+            <span class="fw-semibold" id="orderSubtotal">$0.00</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="small text-muted">Tax :</span>
+            <span class="small text-muted" id="orderTax">$0.00</span>
+          </div>
+          <div
+            class="d-flex justify-content-between align-items-center border-top pt-2 mt-2"
+          >
+            <span class="h5 fw-bold">Total:</span>
+            <span class="h5 fw-bold text-primary" id="orderTotal">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-grid gap-2">
+          <button class="btn btn-success btn-lg" id="processOrderBtn" disabled>
+            <i class="bi bi-plus-circle me-2"></i>Place Order
+          </button>
+          <button class="btn btn-outline-secondary" id="clearOrderBtn">
+            <i class="bi bi-trash me-2"></i>Clear Order
+          </button>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="mt-3">
+          <div class="row g-2">
+            <div class="col-6">
+              <button
+                class="btn btn-outline-primary btn-sm w-100"
+                id="holdOrderBtn"
+              >
+                <i class="bi bi-pause-circle me-1"></i>Hold
+              </button>
+            </div>
+            <div class="col-6">
+              <button
+                class="btn btn-outline-info btn-sm w-100"
+                id="printKitchenBtn"
+              >
+                <i class="bi bi-printer me-1"></i>Kitchen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Process Payment</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center mb-4">
+          <div class="h2 fw-bold text-primary" id="paymentTotal">$0.00</div>
+          <p class="text-muted">Total Amount</p>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Payment Method</label>
+          <div class="row g-2">
+            <div class="col-4">
+              <input
+                type="radio"
+                class="btn-check"
+                name="paymentMethod"
+                id="cashPayment"
+                value="cash"
+                checked
+              />
+              <label class="btn btn-outline-success w-100" for="cashPayment">
+                <i class="bi bi-cash-stack d-block fs-4 mb-1"></i>
+                Cash
+              </label>
+            </div>
+            <div class="col-4">
+              <input
+                type="radio"
+                class="btn-check"
+                name="paymentMethod"
+                id="cardPayment"
+                value="card"
+              />
+              <label class="btn btn-outline-primary w-100" for="cardPayment">
+                <i class="bi bi-credit-card d-block fs-4 mb-1"></i>
+                Card
+              </label>
+            </div>
+            <div class="col-4">
+              <input
+                type="radio"
+                class="btn-check"
+                name="paymentMethod"
+                id="digitalPayment"
+                value="digital"
+              />
+              <label class="btn btn-outline-info w-100" for="digitalPayment">
+                <i class="bi bi-phone d-block fs-4 mb-1"></i>
+                Digital
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-success" id="confirmPaymentBtn">
+          <i class="bi bi-check-circle me-2"></i>Confirm Payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt Modal -->
+<div class="modal fade" id="receiptModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Receipt Preview</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6 class="fw-semibold mb-3">Customer Receipt</h6>
+            <div class="receipt-preview" id="customerReceipt"></div>
+          </div>
+          <div class="col-md-6">
+            <h6 class="fw-semibold mb-3">Kitchen Order</h6>
+            <div class="receipt-preview" id="kitchenReceipt"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          data-bs-dismiss="modal"
+        >
+          Close
+        </button>
+        <button type="button" class="btn btn-primary" id="printReceiptBtn">
+          <i class="bi bi-printer me-2"></i>Print Receipt
+        </button>
+        <button type="button" class="btn btn-success" id="newOrderBtn">
+          <i class="bi bi-plus-circle me-2"></i>New Order
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  let menuItems = [];
+  let currentOrder = [];
+  let tables = [];
+  let waiters = [];
+  let currentOrderId = null;
+  let taxRate = 0.08; // Default 8% tax rate
+
+  // Load initial data
+  document.addEventListener("DOMContentLoaded", function () {
+    loadMenuItems();
+    loadTables();
+    loadWaiters();
+    loadSettings();
+    setupEventListeners();
+  });
+
+  async function loadSettings() {
+    try {
+      const response = await fetch("/api/settings");
+      const result = await response.json();
+
+      if (result.success && result.settings && result.settings.tax_rate) {
+        taxRate = parseFloat(result.settings.tax_rate) / 100; // Convert percentage to decimal
+        updateOrderTotals(); // Recalculate totals with new tax rate
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  }
+
+  async function loadMenuItems() {
+    try {
+      const response = await fetch("/api/menu-items");
+      menuItems = await response.json();
+      displayMenuItems(menuItems);
+    } catch (error) {
+      console.error("Error loading menu items:", error);
+    }
+  }
+
+  async function loadTables() {
+    try {
+      const response = await fetch("/api/tables");
+      tables = await response.json();
+      const tableSelect = document.getElementById("tableSelect");
+      tableSelect.innerHTML = '<option value="">Select Table</option>';
+      tables.forEach((table) => {
+        tableSelect.innerHTML += `<option value="${table.id}">Table ${table.table_number}</option>`;
+      });
+    } catch (error) {
+      console.error("Error loading tables:", error);
+    }
+  }
+
+  async function loadWaiters() {
+    try {
+      const response = await fetch("/api/waiters");
+      waiters = await response.json();
+      const waiterSelect = document.getElementById("waiterSelect");
+      waiterSelect.innerHTML = '<option value="">Select Waiter</option>';
+      waiters.forEach((waiter) => {
+        waiterSelect.innerHTML += `<option value="${waiter.id}">${waiter.name}</option>`;
+      });
+    } catch (error) {
+      console.error("Error loading waiters:", error);
+    }
+  }
+
+  function displayMenuItems(items, category = "") {
+    const grid = document.getElementById("menuItemsGrid");
+
+    if (items.length === 0) {
+      grid.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-search fs-1 text-muted opacity-50"></i>
+                    <p class="mt-2 text-muted">No items found</p>
+                </div>
+            `;
+      return;
+    }
+
+    const filteredItems = category
+      ? items.filter((item) => item.category === category)
+      : items;
+
+    grid.innerHTML = filteredItems
+      .map(
+        (item) => `
+            <div class="col-md-4 col-lg-3 mb-3">
+                <div class="menu-item-card card h-100" data-item-id="${
+                  item.id
+                }">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title fw-semibold mb-0">${
+                              item.name
+                            }</h6>
+                            <span class="badge bg-${
+                              item.category === "food" ? "primary" : "success"
+                            }">${item.category}</span>
+                        </div>
+                        <div class="mt-auto">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="h5 fw-bold text-primary mb-0">$${item.price.toFixed(
+                                  2
+                                )}</span>
+                                <button class="btn btn-primary btn-sm add-item-btn" data-item='${JSON.stringify(
+                                  item
+                                )}'>
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `
+      )
+      .join("");
+
+    // Add click handlers for menu items
+    document.querySelectorAll(".add-item-btn").forEach((btn) => {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const item = JSON.parse(this.dataset.item);
+        addItemToOrder(item);
+      });
+    });
+
+    // Add click handlers for menu item cards
+    document.querySelectorAll(".menu-item-card").forEach((card) => {
+      card.addEventListener("click", function () {
+        const itemId = parseInt(this.dataset.itemId);
+        const item = menuItems.find((i) => i.id === itemId);
+        if (item) addItemToOrder(item);
+      });
+    });
+  }
+
+  function addItemToOrder(item) {
+    const existingItem = currentOrder.find(
+      (orderItem) => orderItem.id === item.id
+    );
+
+    if (existingItem) {
+      existingItem.quantity += 1;
+    } else {
+      currentOrder.push({
+        ...item,
+        quantity: 1,
+      });
+    }
+
+    updateOrderDisplay();
+
+    // Visual feedback
+    const btn = document.querySelector(
+      `[data-item-id="${item.id}"] .add-item-btn`
+    );
+    btn.innerHTML = '<i class="bi bi-check-circle"></i>';
+    btn.classList.remove("btn-primary");
+    btn.classList.add("btn-success");
+
+    setTimeout(() => {
+      btn.innerHTML = '<i class="bi bi-plus-circle"></i>';
+      btn.classList.remove("btn-success");
+      btn.classList.add("btn-primary");
+    }, 500);
+  }
+
+  function updateOrderDisplay() {
+    const orderList = document.getElementById("orderItemsList");
+
+    if (currentOrder.length === 0) {
+      orderList.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-cart3 fs-1 d-block mb-2 opacity-50"></i>
+                    <p class="mb-0">No items added</p>
+                </div>
+            `;
+    } else {
+      orderList.innerHTML = currentOrder
+        .map(
+          (item, index) => `
+                <div class="d-flex align-items-center justify-content-between mb-2 p-2 bg-light rounded">
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold">${item.name}</div>
+                        <div class="small text-muted">$${item.price.toFixed(
+                          2
+                        )} each</div>
+                    </div>
+                    <div class="quantity-control">
+                        <button class="quantity-btn btn btn-outline-secondary btn-sm" onclick="updateQuantity(${index}, -1)">
+                            <i class="bi bi-dash"></i>
+                        </button>
+                        <span class="mx-2 fw-semibold">${item.quantity}</span>
+                        <button class="quantity-btn btn btn-outline-secondary btn-sm" onclick="updateQuantity(${index}, 1)">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                    </div>
+                    <div class="ms-3">
+                        <div class="fw-semibold">$${(
+                          item.price * item.quantity
+                        ).toFixed(2)}</div>
+                        <button class="btn btn-outline-danger btn-sm" onclick="removeItem(${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `
+        )
+        .join("");
+    }
+
+    updateOrderTotals();
+    updateProcessButton();
+  }
+
+  function updateQuantity(index, change) {
+    currentOrder[index].quantity += change;
+    if (currentOrder[index].quantity <= 0) {
+      currentOrder.splice(index, 1);
+    }
+    updateOrderDisplay();
+  }
+
+  function removeItem(index) {
+    currentOrder.splice(index, 1);
+    updateOrderDisplay();
+  }
+
+  function updateOrderTotals() {
+    const subtotal = currentOrder.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const tax = subtotal * taxRate; // Use dynamic tax rate
+    const total = subtotal + tax;
+
+    document.getElementById("orderSubtotal").textContent =
+      "$" + subtotal.toFixed(2);
+    document.getElementById("orderTax").textContent = "$" + tax.toFixed(2);
+    document.getElementById("orderTotal").textContent = "$" + total.toFixed(2);
+  }
+
+  function updateProcessButton() {
+    const processBtn = document.getElementById("processOrderBtn");
+    const tableSelected = document.getElementById("tableSelect").value;
+    const waiterSelected = document.getElementById("waiterSelect").value;
+    const hasItems = currentOrder.length > 0;
+
+    processBtn.disabled = !(tableSelected && waiterSelected && hasItems);
+  }
+
+  function setupEventListeners() {
+    // Search functionality
+    document
+      .getElementById("searchMenu")
+      .addEventListener("input", function () {
+        const searchTerm = this.value.toLowerCase();
+        const filtered = menuItems.filter((item) =>
+          item.name.toLowerCase().includes(searchTerm)
+        );
+        displayMenuItems(filtered);
+      });
+
+    // Category filter
+    document
+      .getElementById("categoryFilter")
+      .addEventListener("change", function () {
+        const category = this.value;
+        const filtered = category
+          ? menuItems.filter((item) => item.category === category)
+          : menuItems;
+        displayMenuItems(filtered);
+      });
+
+    // Category tabs
+    document.querySelectorAll("#categoryTabs .nav-link").forEach((tab) => {
+      tab.addEventListener("click", function () {
+        document
+          .querySelectorAll("#categoryTabs .nav-link")
+          .forEach((t) => t.classList.remove("active"));
+        this.classList.add("active");
+
+        const category = this.dataset.category;
+        const filtered = category
+          ? menuItems.filter((item) => item.category === category)
+          : menuItems;
+        displayMenuItems(filtered);
+      });
+    });
+
+    // Table and waiter selection
+    document
+      .getElementById("tableSelect")
+      .addEventListener("change", updateProcessButton);
+    document
+      .getElementById("waiterSelect")
+      .addEventListener("change", updateProcessButton);
+
+    // Clear order
+    document
+      .getElementById("clearOrderBtn")
+      .addEventListener("click", function () {
+        if (confirm("Are you sure you want to clear the current order?")) {
+          currentOrder = [];
+          updateOrderDisplay();
+        }
+      });
+
+    // Process order (place order without payment)
+    document
+      .getElementById("processOrderBtn")
+      .addEventListener("click", function () {
+        placeOrder();
+      });
+
+    // Confirm payment (only when payment modal is used)
+    document
+      .getElementById("confirmPaymentBtn")
+      .addEventListener("click", processPayment);
+
+    // New order
+    document
+      .getElementById("newOrderBtn")
+      .addEventListener("click", function () {
+        location.reload();
+      });
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", function (e) {
+      if (e.ctrlKey && e.key === "Enter") {
+        e.preventDefault();
+        if (!document.getElementById("processOrderBtn").disabled) {
+          document.getElementById("processOrderBtn").click();
+        }
+      }
+    });
+  }
+
+  async function placeOrder() {
+    try {
+      const tableId = document.getElementById("tableSelect").value;
+      const waiterId = document.getElementById("waiterSelect").value;
+
+      const subtotal = currentOrder.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      const total = subtotal * (1 + taxRate); // Use dynamic tax rate
+
+      // Create order without payment
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          table_id: parseInt(tableId),
+          waiter_id: parseInt(waiterId),
+          total_amount: total,
+          items: currentOrder.map((item) => ({
+            menu_item_id: item.id,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        }),
+      });
+
+      if (orderResponse.ok) {
+        const orderResult = await orderResponse.json();
+        currentOrderId = orderResult.order_id;
+
+        // Clear the current order after successful placement
+        currentOrder = [];
+        currentOrderId = null;
+        updateOrderDisplay();
+
+        // Reset form selections
+        document.getElementById("tableSelect").value = "";
+        document.getElementById("waiterSelect").value = "";
+        updateProcessButton();
+
+        // Show success message
+        alert('Order placed successfully! Payment can be processed later from the Orders page.');
+      } else if (orderResponse.status === 409) {
+        // Handle table assignment conflict
+        const errorResult = await orderResponse.json();
+        
+        if (errorResult.can_force) {
+          const confirmMessage = `${errorResult.error}\n\nWould you like to add these items to the existing order anyway?`;
+          
+          if (confirm(confirmMessage)) {
+            // Retry with force_add flag
+            const forceResponse = await fetch("/api/orders", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                table_id: parseInt(tableId),
+                waiter_id: parseInt(waiterId),
+                total_amount: total,
+                force_add: true,
+                items: currentOrder.map((item) => ({
+                  menu_item_id: item.id,
+                  quantity: item.quantity,
+                  price: item.price,
+                })),
+              }),
+            });
+
+            if (forceResponse.ok) {
+              const orderResult = await forceResponse.json();
+              currentOrderId = orderResult.order_id;
+
+              // Clear the current order after successful placement
+              currentOrder = [];
+              currentOrderId = null;
+              updateOrderDisplay();
+
+              // Reset form selections
+              document.getElementById("tableSelect").value = "";
+              document.getElementById("waiterSelect").value = "";
+              updateProcessButton();
+
+              // Show success message
+              alert('Additional items added to existing order successfully!');
+            } else {
+              const forceErrorResult = await forceResponse.json();
+              throw new Error(forceErrorResult.error || 'Failed to add items to existing order');
+            }
+          }
+        } else {
+          throw new Error(errorResult.error || 'Table assignment conflict');
+        }
+      } else {
+        // Get the specific error message from the server
+        const errorResult = await orderResponse.json();
+        throw new Error(errorResult.error || 'Failed to place order');
+      }
+    } catch (error) {
+      console.error("Error placing order:", error);
+      alert("Error placing order. Please try again.");
+    }
+  }
+
+  async function processPayment() {
+    try {
+      const tableId = document.getElementById("tableSelect").value;
+      const waiterId = document.getElementById("waiterSelect").value;
+      const paymentMethod = document.querySelector(
+        'input[name="paymentMethod"]:checked'
+      ).value;
+
+      const subtotal = currentOrder.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      const total = subtotal * (1 + taxRate); // Use dynamic tax rate
+
+      // Create order
+      const orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          table_id: parseInt(tableId),
+          waiter_id: parseInt(waiterId),
+          total_amount: total,
+          items: currentOrder.map((item) => ({
+            menu_item_id: item.id,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        }),
+      });
+
+      const orderResult = await orderResponse.json();
+      currentOrderId = orderResult.order_id;
+
+      // Process payment
+      const paymentResponse = await fetch(`/api/orders/${currentOrderId}/pay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          total_amount: total,
+          payment_method: paymentMethod,
+        }),
+      });
+
+      if (paymentResponse.ok) {
+        // Hide payment modal
+        bootstrap.Modal.getInstance(
+          document.getElementById("paymentModal")
+        ).hide();
+
+        // Generate and show receipt
+        await generateReceipt();
+
+        // Clear the current order after successful payment
+        currentOrder = [];
+        currentOrderId = null;
+        updateOrderDisplay();
+
+        // Reset form selections
+        document.getElementById("tableSelect").value = "";
+        document.getElementById("waiterSelect").value = "";
+        updateProcessButton();
+
+        // Show success message
+        // setTimeout(() => {
+        //     alert('Order completed successfully!');
+        // }, 500);
+      }
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      alert("Error processing payment. Please try again.");
+    }
+  }
+
+  async function generateReceipt() {
+    try {
+      const response = await fetch(`/api/print-receipt/${currentOrderId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        document.getElementById("customerReceipt").textContent = result.receipt;
+
+        // Generate kitchen receipt (simplified)
+        const kitchenReceipt = generateKitchenReceipt();
+        document.getElementById("kitchenReceipt").textContent = kitchenReceipt;
+
+        new bootstrap.Modal(document.getElementById("receiptModal")).show();
+      }
+    } catch (error) {
+      console.error("Error generating receipt:", error);
+    }
+  }
+
+  function generateKitchenReceipt() {
+    const table = tables.find(
+      (t) => t.id == document.getElementById("tableSelect").value
+    );
+    const waiter = waiters.find(
+      (w) => w.id == document.getElementById("waiterSelect").value
+    );
+
+    let receipt = "================================\n";
+    receipt += "       KITCHEN ORDER\n";
+    receipt += "================================\n\n";
+    receipt += `Order #: ${currentOrderId}\n`;
+    receipt += `Table: ${table?.table_number}\n`;
+    receipt += `Waiter: ${waiter?.name}\n`;
+    receipt += `Time: ${new Date().toLocaleTimeString()}\n`;
+    receipt += "--------------------------------\n\n";
+
+    currentOrder.forEach((item) => {
+      receipt += `${item.quantity}x ${item.name}\n`;
+    });
+
+    receipt += "\n================================";
+
+    return receipt;
+  }
+</script>
+{% endblock %}

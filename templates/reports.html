@@ -1,0 +1,658 @@
+{% extends "base.html" %} {% block title %}Reports & Analytics{% endblock %} {%
+block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">Reports & Analytics</h2>
+      <p class="text-muted mb-0">Analyze your restaurant's performance</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-primary" onclick="exportToCsv()">
+        <i class="bi bi-file-earmark-spreadsheet me-2"></i>Export CSV
+      </button>
+      <!-- <button class="btn btn-outline-danger" onclick="exportToPdf()">
+        <i class="bi bi-file-earmark-pdf me-2"></i>Export PDF
+      </button> -->
+    </div>
+  </div>
+
+  <!-- Date Range Filter -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row align-items-end">
+        <div class="col-md-3">
+          <label for="startDate" class="form-label fw-semibold"
+            >Start Date</label
+          >
+          <input type="date" class="form-control" id="startDate" />
+        </div>
+        <div class="col-md-3">
+          <label for="endDate" class="form-label fw-semibold">End Date</label>
+          <input type="date" class="form-control" id="endDate" />
+        </div>
+        <div class="col-md-3">
+          <label for="reportType" class="form-label fw-semibold"
+            >Report Type</label
+          >
+          <select class="form-select" id="reportType">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary w-100" onclick="generateReport()">
+            <i class="bi bi-bar-chart me-2"></i>Generate Report
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Total Revenue</h6>
+              <h3 class="mb-0" id="totalRevenue">$0.00</h3>
+              <small class="opacity-75" id="revenueChange"
+                >+0% from last period</small
+              >
+            </div>
+            <i class="bi bi-currency-dollar fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Total Orders</h6>
+              <h3 class="mb-0" id="totalOrdersCount">0</h3>
+              <small class="opacity-75" id="ordersChange"
+                >+0% from last period</small
+              >
+            </div>
+            <i class="bi bi-receipt fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Average Order</h6>
+              <h3 class="mb-0" id="avgOrderValue">$0.00</h3>
+              <small class="opacity-75" id="avgChange"
+                >+0% from last period</small
+              >
+            </div>
+            <i class="bi bi-graph-up fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Items Sold</h6>
+              <h3 class="mb-0" id="totalItemsSold">0</h3>
+              <small class="opacity-75" id="itemsChange"
+                >+0% from last period</small
+              >
+            </div>
+            <i class="bi bi-box fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Revenue Trend</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="revenueChart" height="100"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Payment Methods</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="paymentChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Items and Performance -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Top Selling Items</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Sold</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="topItemsTable">
+                <tr>
+                  <td colspan="3" class="text-center py-3">
+                    <div
+                      class="spinner-border spinner-border-sm text-primary"
+                      role="status"
+                    ></div>
+                    <span class="ms-2">Loading...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Waiter Performance</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Waiter</th>
+                  <th>Orders</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="waiterPerformanceTable">
+                <tr>
+                  <td colspan="3" class="text-center py-3">
+                    <div
+                      class="spinner-border spinner-border-sm text-primary"
+                      role="status"
+                    ></div>
+                    <span class="ms-2">Loading...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table Performance -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Table Performance</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Table</th>
+                  <th>Orders</th>
+                  <th>Revenue</th>
+                  <th>Avg Order</th>
+                </tr>
+              </thead>
+              <tbody id="tablePerformanceTable">
+                <tr>
+                  <td colspan="4" class="text-center py-3">
+                    <div
+                      class="spinner-border spinner-border-sm text-primary"
+                      role="status"
+                    ></div>
+                    <span class="ms-2">Loading...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Hourly Sales Chart - Commented out for future use
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Hourly Sales</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="hourlyChart" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+    -->
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  let revenueChart, paymentChart, hourlyChart;
+  let reportData = {};
+
+  document.addEventListener("DOMContentLoaded", function () {
+    initializeDateRange();
+    initializeCharts();
+    generateReport();
+  });
+
+  function initializeDateRange() {
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById("endDate").value = today
+      .toISOString()
+      .split("T")[0];
+    document.getElementById("startDate").value = lastWeek
+      .toISOString()
+      .split("T")[0];
+  }
+
+  function initializeCharts() {
+    // Revenue Chart
+    const revenueCtx = document.getElementById("revenueChart").getContext("2d");
+    revenueChart = new Chart(revenueCtx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Revenue",
+            data: [],
+            borderColor: "rgb(13, 110, 253)",
+            backgroundColor: "rgba(13, 110, 253, 0.1)",
+            tension: 0.4,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function (value) {
+                return "$" + value.toFixed(2);
+              },
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+      },
+    });
+
+    // Payment Methods Chart
+    const paymentCtx = document.getElementById("paymentChart").getContext("2d");
+    paymentChart = new Chart(paymentCtx, {
+      type: "doughnut",
+      data: {
+        labels: ["Cash", "Card", "Digital"],
+        datasets: [
+          {
+            data: [0, 0, 0],
+            backgroundColor: [
+              "rgb(25, 135, 84)",
+              "rgb(13, 110, 253)",
+              "rgb(255, 193, 7)",
+            ],
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom",
+          },
+        },
+      },
+    });
+
+    /* Hourly Sales Chart - Commented out for future use
+    // Hourly Sales Chart
+    const hourlyCtx = document.getElementById("hourlyChart").getContext("2d");
+    hourlyChart = new Chart(hourlyCtx, {
+      type: "bar",
+      data: {
+        labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
+        datasets: [
+          {
+            label: "Orders",
+            data: new Array(24).fill(0),
+            backgroundColor: "rgba(13, 110, 253, 0.8)",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1,
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+      },
+    });
+    */
+  }
+
+  async function generateReport() {
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+    const reportType = document.getElementById("reportType").value;
+
+    if (!startDate || !endDate) {
+      showError("Please select both start and end dates");
+      return;
+    }
+
+    try {
+      showLoading(true);
+
+      const response = await fetch(
+        `/api/reports?start_date=${startDate}&end_date=${endDate}&type=${reportType}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      reportData = await response.json();
+      console.log("API Response:", reportData); // Debug log
+
+      updateSummaryCards();
+      updateCharts();
+      updateTables();
+
+      showLoading(false);
+      showSuccess("Report generated successfully");
+    } catch (error) {
+      console.error("Error generating report:", error);
+      showError("Failed to generate report");
+      showLoading(false);
+    }
+  }
+
+  function updateSummaryCards() {
+    document.getElementById("totalRevenue").textContent = `$${(
+      reportData.totalRevenue || 0
+    ).toFixed(2)}`;
+    document.getElementById("totalOrdersCount").textContent =
+      reportData.totalOrders || 0;
+    document.getElementById("avgOrderValue").textContent = `$${(
+      reportData.avgOrderValue || 0
+    ).toFixed(2)}`;
+    document.getElementById("totalItemsSold").textContent =
+      reportData.totalItems || 0;
+
+    // Update change percentages (mock data for now)
+    document.getElementById("revenueChange").textContent =
+      "+12% from last period";
+    document.getElementById("ordersChange").textContent =
+      "+8% from last period";
+    document.getElementById("avgChange").textContent = "+5% from last period";
+    document.getElementById("itemsChange").textContent =
+      "+15% from last period";
+  }
+
+  function updateCharts() {
+    // Update Revenue Chart
+    if (reportData.revenueTrend) {
+      const labels = reportData.revenueTrend.map((item) => item.date);
+      const data = reportData.revenueTrend.map((item) => item.revenue);
+      revenueChart.data.labels = labels;
+      revenueChart.data.datasets[0].data = data;
+      revenueChart.update();
+    }
+
+    // Update Payment Methods Chart
+    if (reportData.paymentMethods) {
+      const cashData = reportData.paymentMethods.find(
+        (pm) => pm.payment_method === "cash"
+      );
+      const cardData = reportData.paymentMethods.find(
+        (pm) => pm.payment_method === "card"
+      );
+      const digitalData = reportData.paymentMethods.find(
+        (pm) => pm.payment_method === "digital"
+      );
+
+      paymentChart.data.datasets[0].data = [
+        cashData ? cashData.total : 0,
+        cardData ? cardData.total : 0,
+        digitalData ? digitalData.total : 0,
+      ];
+      paymentChart.update();
+    }
+
+    /* Update Hourly Chart - Commented out for future use
+    // Update Hourly Chart
+    if (reportData.hourlySales) {
+      const hourlyData = new Array(24).fill(0);
+      reportData.hourlySales.forEach((item) => {
+        const hour = parseInt(item.hour.split(":")[0]);
+        hourlyData[hour] = item.revenue;
+      });
+      hourlyChart.data.datasets[0].data = hourlyData;
+      hourlyChart.update();
+    }
+    */
+  }
+
+  function updateTables() {
+    // Update Top Items Table
+    const topItemsTable = document.getElementById("topItemsTable");
+    if (reportData.topItems && reportData.topItems.length > 0) {
+      topItemsTable.innerHTML = reportData.topItems
+        .map(
+          (item) => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td class="fw-semibold">${item.quantity}</td>
+                    <td class="fw-semibold">$${item.revenue.toFixed(2)}</td>
+                </tr>
+            `
+        )
+        .join("");
+    } else {
+      topItemsTable.innerHTML =
+        '<tr><td colspan="3" class="text-center text-muted">No data available</td></tr>';
+    }
+
+    // Update Waiter Performance Table
+    const waiterTable = document.getElementById("waiterPerformanceTable");
+    if (
+      reportData.waiterPerformance &&
+      reportData.waiterPerformance.length > 0
+    ) {
+      waiterTable.innerHTML = reportData.waiterPerformance
+        .map(
+          (waiter) => `
+                <tr>
+                    <td>${waiter.name}</td>
+                    <td class="fw-semibold">${waiter.orders}</td>
+                    <td class="fw-semibold">$${waiter.revenue.toFixed(2)}</td>
+                </tr>
+            `
+        )
+        .join("");
+    } else {
+      waiterTable.innerHTML =
+        '<tr><td colspan="3" class="text-center text-muted">No data available</td></tr>';
+    }
+
+    // Update Table Performance Table
+    const tableTable = document.getElementById("tablePerformanceTable");
+    if (reportData.tablePerformance && reportData.tablePerformance.length > 0) {
+      tableTable.innerHTML = reportData.tablePerformance
+        .map(
+          (table) => `
+                <tr>
+                    <td>Table ${table.table_number}</td>
+                    <td class="fw-semibold">${table.orders}</td>
+                    <td class="fw-semibold">$${table.revenue.toFixed(2)}</td>
+                    <td class="fw-semibold">$${
+                      table.orders > 0
+                        ? (table.revenue / table.orders).toFixed(2)
+                        : "0.00"
+                    }</td>
+                </tr>
+            `
+        )
+        .join("");
+    } else {
+      tableTable.innerHTML =
+        '<tr><td colspan="4" class="text-center text-muted">No data available</td></tr>';
+    }
+  }
+
+  function showLoading(show) {
+    const loadingElements = document.querySelectorAll(".spinner-border");
+    loadingElements.forEach((el) => {
+      el.style.display = show ? "inline-block" : "none";
+    });
+  }
+
+  async function exportToCsv() {
+    try {
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
+
+      const response = await fetch(
+        `/api/reports/export/csv?start_date=${startDate}&end_date=${endDate}`
+      );
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `restaurant_report_${startDate}_to_${endDate}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showSuccess("CSV report exported successfully");
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      showError("Failed to export CSV report");
+    }
+  }
+
+  async function exportToPdf() {
+    try {
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
+
+      const response = await fetch(
+        `/api/reports/export/pdf?start_date=${startDate}&end_date=${endDate}`
+      );
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `restaurant_report_${startDate}_to_${endDate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showSuccess("PDF report exported successfully");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      showError("Failed to export PDF report");
+    }
+  }
+
+  function showSuccess(message) {
+    showToast(message, "success");
+  }
+
+  function showError(message) {
+    showToast(message, "danger");
+  }
+
+  function showToast(message, type) {
+    const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-${
+                          type === "success"
+                            ? "check-circle"
+                            : "exclamation-triangle"
+                        } me-2"></i>
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+    let toastContainer = document.getElementById("toastContainer");
+    if (!toastContainer) {
+      toastContainer = document.createElement("div");
+      toastContainer.id = "toastContainer";
+      toastContainer.className =
+        "toast-container position-fixed top-0 end-0 p-3";
+      toastContainer.style.zIndex = "9999";
+      document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.insertAdjacentHTML("beforeend", toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+
+    toastElement.addEventListener("hidden.bs.toast", function () {
+      this.remove();
+    });
+  }
+</script>
+{% endblock %}

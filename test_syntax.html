@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test</title>
+  </head>
+  <body>
+    <script>
+      function test() {
+        const orders = [{ id: 1, status: "pending" }];
+        const html = orders
+          .map(
+            (order) => `
+    <button onclick="viewOrderDetails(${order.id})">View</button>
+  `
+          )
+          .join("");
+        console.log(html);
+      }
+      test();
+    </script>
+  </body>
+</html>

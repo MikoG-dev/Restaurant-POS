@@ -1,0 +1,1718 @@
+{% extends "base.html" %} {% block title %}Orders Management{% endblock %} {%
+block extra_css %}
+<style>
+  /* Compact Table Status Cards */
+  .table-status-card {
+    transition: all 0.3s ease;
+    border-width: 2px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .table-status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .table-status-card .card-body {
+    padding: 0.75rem;
+  }
+
+  .table-status-card .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+
+  .table-status-card .badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+
+  .table-status-card .table-info small {
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+
+  .table-status-card .btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+  }
+
+  /* Status-specific styling */
+  .border-danger {
+    border-color: #dc3545 !important;
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe6e6 100%);
+  }
+
+  .border-warning {
+    border-color: #ffc107 !important;
+    background: linear-gradient(135deg, #fffbf0 0%, #fff3cd 100%);
+  }
+
+  .border-info {
+    border-color: #0dcaf0 !important;
+    background: linear-gradient(135deg, #f0fcff 0%, #cff4fc 100%);
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 1200px) {
+    .table-status-card .card-title {
+      font-size: 0.9rem;
+    }
+
+    .table-status-card .badge {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.4rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .table-status-card .card-body {
+      padding: 0.5rem;
+    }
+
+    .table-status-card .table-info small {
+      font-size: 0.65rem;
+    }
+  }
+
+  /* Status indicator animations */
+  .badge .bi-exclamation-circle-fill {
+    animation: pulse-urgent 2s infinite;
+  }
+
+  .badge .bi-clock-fill {
+    animation: pulse-busy 3s infinite;
+  }
+
+  @keyframes pulse-urgent {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes pulse-busy {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  /* Grid layout optimization */
+  #tableStatusGrid {
+    margin: -0.5rem;
+  }
+
+  #tableStatusGrid > .col-xl-2,
+  #tableStatusGrid > .col-lg-3,
+  #tableStatusGrid > .col-md-4,
+  #tableStatusGrid > .col-sm-6 {
+    padding: 0.5rem;
+  }
+
+  /* Empty state styling */
+  .table-status-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+  }
+
+  .table-status-empty i {
+    font-size: 3rem;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+  }
+
+  .table-status-empty p {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  /* Priority color coding for amounts and order counts */
+  .text-danger {
+    color: #dc3545 !important;
+    font-weight: 700;
+  }
+
+  .text-warning {
+    color: #fd7e14 !important;
+    font-weight: 600;
+  }
+
+  .text-success {
+    color: #198754 !important;
+    font-weight: 600;
+  }
+
+  /* Enhanced badge styling for order counts */
+  .badge.bg-danger {
+    background-color: #dc3545 !important;
+    animation: pulse-urgent 2s infinite;
+  }
+
+  .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+  }
+
+  .badge.bg-info {
+    background-color: #0dcaf0 !important;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">Orders Management</h2>
+      <p class="text-muted mb-0">View and manage all restaurant orders</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-primary" onclick="refreshOrders()">
+        <i class="bi bi-arrow-clockwise me-2"></i>Refresh
+      </button>
+      <a href="/pos" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>New Order
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <select class="form-select" id="statusFilter">
+        <option value="">All Orders</option>
+        <option value="pending">Pending</option>
+        <option value="completed">Completed</option>
+        <option value="paid">Paid</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select class="form-select" id="tableFilter">
+        <option value="">All Tables</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select class="form-select" id="waiterFilter">
+        <option value="">All Waiters</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <input type="date" class="form-control" id="dateFilter" />
+    </div>
+  </div>
+
+  <!-- Orders Summary Cards -->
+  <div class="row mb-4">
+    <div class="col-md-2">
+      <div class="card bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Total Orders</h6>
+              <h3 class="mb-0" id="totalOrders">0</h3>
+            </div>
+            <i class="bi bi-receipt fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Pending</h6>
+              <h3 class="mb-0" id="pendingOrders">0</h3>
+            </div>
+            <i class="bi bi-clock fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Paid</h6>
+              <h3 class="mb-0" id="paidOrders">0</h3>
+            </div>
+            <i class="bi bi-check-circle fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Today's Revenue</h6>
+              <h3 class="mb-0" id="todayRevenue">$0.00</h3>
+            </div>
+            <i class="bi bi-currency-dollar fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card bg-danger text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Active Tables</h6>
+              <h3 class="mb-0" id="activeTables">0</h3>
+            </div>
+            <i class="bi bi-table fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card bg-secondary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Pending Amount</h6>
+              <h3 class="mb-0" id="pendingAmount">$0.00</h3>
+            </div>
+            <i class="bi bi-hourglass-split fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table Status Overview -->
+  <div class="card mb-4" id="tableStatusCard">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div>
+        <h6 class="mb-0">Active Tables Status</h6>
+        <small class="text-muted">Tables with pending orders</small>
+      </div>
+      <button
+        class="btn btn-sm btn-outline-primary"
+        onclick="refreshTableStatus()"
+      >
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+      </button>
+    </div>
+    <div class="card-body">
+      <div class="row" id="tableStatusGrid">
+        <!-- Table status cards will be populated here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Orders Table -->
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div>
+        <h6 class="mb-0">Orders List</h6>
+        <small class="text-muted" id="ordersInfo">Loading...</small>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <label for="perPageSelect" class="form-label mb-0 me-2">Show:</label>
+        <select
+          class="form-select form-select-sm"
+          id="perPageSelect"
+          style="width: auto"
+        >
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>Order #</th>
+              <th>Table</th>
+              <th>Waiter</th>
+              <th>Session</th>
+              <th>Items</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Time</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTable">
+            <tr>
+              <td colspan="9" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading orders...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Controls -->
+      <div
+        class="d-flex justify-content-between align-items-center mt-3"
+        id="paginationContainer"
+      >
+        <div class="text-muted">
+          <span id="paginationInfo">Showing 0 to 0 of 0 orders</span>
+        </div>
+        <nav aria-label="Orders pagination">
+          <ul class="pagination pagination-sm mb-0" id="paginationControls">
+            <!-- Pagination buttons will be generated here -->
+          </ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Order Details</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body" id="orderDetailsContent">
+        <!-- Order details will be loaded here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Close
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="printReceiptBtn"
+          style="display: none"
+        >
+          <i class="bi bi-printer me-2"></i>Print Receipt
+        </button>
+        <button
+          type="button"
+          class="btn btn-success"
+          id="markPaidBtn"
+          style="display: none"
+        >
+          <i class="bi bi-check-circle me-2"></i>Mark as Paid
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Process Payment</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Order Total</label>
+          <div class="fs-4 fw-bold text-primary" id="paymentTotal">$0.00</div>
+        </div>
+
+        <div class="mb-3">
+          <label for="paymentMethod" class="form-label fw-semibold"
+            >Payment Method</label
+          >
+          <select class="form-select" id="paymentMethod" required>
+            <option value="cash">Cash</option>
+            <option value="card">Card</option>
+            <option value="digital">Digital Payment</option>
+          </select>
+        </div>
+
+        <div class="mb-3" id="cashAmountGroup" style="display: none">
+          <label for="cashAmount" class="form-label fw-semibold"
+            >Cash Received</label
+          >
+          <input
+            type="number"
+            class="form-control"
+            id="cashAmount"
+            step="0.01"
+            min="0"
+          />
+          <div class="mt-2">
+            <small class="text-muted">Change: </small>
+            <span class="fw-bold" id="changeAmount">$0.00</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-success" id="processPaymentBtn">
+          <i class="bi bi-check-circle me-2"></i>Process Payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Table Orders Modal -->
+<div class="modal fade" id="tableOrdersModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Table Orders</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <div class="row">
+            <div class="col-md-6">
+              <strong>Table:</strong> <span id="tableOrdersTableNumber"></span>
+            </div>
+            <div class="col-md-6">
+              <strong>Waiter:</strong> <span id="tableOrdersWaiter"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <h6>Pending Orders:</h6>
+          <div id="tableOrdersList" class="border rounded p-3">
+            <!-- Orders will be populated here -->
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6">
+            <strong>Total Orders:</strong> <span id="tableOrdersCount">0</span>
+          </div>
+          <div class="col-md-6 text-end">
+            <strong>Total Amount:</strong>
+            <span id="tableOrdersTotal" class="fs-5 fw-bold text-primary"
+              >$0.00</span
+            >
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Close
+        </button>
+        <button type="button" class="btn btn-success" id="payTableBtn">
+          <i class="bi bi-credit-card me-2"></i>Process Payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  let orders = [];
+  let tables = [];
+  let waiters = [];
+  let currentOrderId = null;
+  let currentPage = 1;
+  let perPage = 25;
+  let totalPages = 1;
+  let totalOrders = 0;
+
+  // Table Status Management Functions
+  async function loadTableStatus() {
+    try {
+      const response = await fetch("/api/tables/status");
+      const tableStatus = await response.json();
+      displayTableStatus(tableStatus);
+      updateTableSummaryCards(tableStatus);
+    } catch (error) {
+      console.error("Error loading table status:", error);
+    }
+  }
+
+  function displayTableStatus(tableStatus) {
+    const grid = document.getElementById("tableStatusGrid");
+    const activeTables = tableStatus.filter(
+      (table) => table.status === "occupied"
+    );
+
+    if (activeTables.length === 0) {
+      grid.innerHTML = `
+         <div class="col-12 table-status-empty">
+           <i class="bi bi-table"></i>
+           <p class="mt-2">No active tables with pending orders</p>
+         </div>
+       `;
+      return;
+    }
+
+    grid.innerHTML = activeTables
+      .map((table) => {
+        // Determine status color and urgency based on pending orders and amount
+        let statusClass = "bg-warning text-dark";
+        let statusIcon = "bi-circle-fill";
+        let statusText = "Active";
+        let cardBorder = "border-warning";
+
+        // High priority: Many orders or high amount
+        if (table.pending_orders >= 3 || table.pending_total >= 50) {
+          statusClass = "bg-danger text-white";
+          statusIcon = "bi-exclamation-circle-fill";
+          statusText = "Urgent";
+          cardBorder = "border-danger";
+        }
+        // Medium priority: Multiple orders
+        else if (table.pending_orders >= 2 || table.pending_total >= 25) {
+          statusClass = "bg-warning text-dark";
+          statusIcon = "bi-clock-fill";
+          statusText = "Busy";
+          cardBorder = "border-warning";
+        }
+        // Low priority: Single order or low amount
+        else {
+          statusClass = "bg-info text-white";
+          statusIcon = "bi-circle-fill";
+          statusText = "Active";
+          cardBorder = "border-info";
+        }
+
+        return `
+       <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-3">
+         <div class="card ${cardBorder} h-100 table-status-card">
+           <div class="card-body">
+             <div class="d-flex justify-content-between align-items-center mb-2">
+               <h6 class="card-title mb-0">T${table.table_number}</h6>
+               <span class="badge ${statusClass}">
+                 <i class="${statusIcon} me-1"></i>${statusText}
+               </span>
+             </div>
+             
+             <div class="table-info mb-2">
+               <div class="d-flex justify-content-between align-items-center mb-1">
+                 <small class="text-muted">Waiter:</small>
+                 <span class="fw-semibold text-truncate ms-2" style="max-width: 80px;" title="${
+                   table.waiter_name || "Unassigned"
+                 }">${
+          table.waiter_name
+            ? table.waiter_name.length > 8
+              ? table.waiter_name.substring(0, 8) + "..."
+              : table.waiter_name
+            : "Unassigned"
+        }</span>
+               </div>
+               
+               <div class="d-flex justify-content-between align-items-center mb-1">
+                 <small class="text-muted">Orders:</small>
+                 <span class="badge ${
+                   table.pending_orders >= 3
+                     ? "bg-danger"
+                     : table.pending_orders >= 2
+                     ? "bg-warning text-dark"
+                     : "bg-info"
+                 }">${table.pending_orders}</span>
+               </div>
+               
+               <div class="d-flex justify-content-between align-items-center mb-2">
+                 <small class="text-muted">Amount:</small>
+                 <span class="fw-bold ${
+                   table.pending_total >= 50
+                     ? "text-danger"
+                     : table.pending_total >= 25
+                     ? "text-warning"
+                     : "text-success"
+                 }">$${table.pending_total.toFixed(2)}</span>
+               </div>
+             </div>
+             
+             <div class="d-grid gap-1">
+               <div class="btn-group btn-group-sm" role="group">
+                 <button class="btn btn-outline-primary" onclick="viewTableOrders(${
+                   table.id
+                 })" title="View Orders">
+                   <i class="bi bi-eye"></i>
+                 </button>
+                 <button class="btn btn-outline-success" onclick="printTableReceipt(${
+                   table.id
+                 })" title="Print Receipt">
+                   <i class="bi bi-printer"></i>
+                 </button>
+                 <button class="btn btn-outline-warning" onclick="markTableAsPaid(${
+                   table.id
+                 })" title="Mark as Paid">
+                   <i class="bi bi-check-circle"></i>
+                 </button>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+     `;
+      })
+      .join("");
+  }
+
+  function updateTableSummaryCards(tableStatus) {
+    const activeTables = tableStatus.filter(
+      (table) => table.status === "occupied"
+    );
+    const totalPendingAmount = activeTables.reduce(
+      (sum, table) => sum + table.pending_total,
+      0
+    );
+
+    document.getElementById("activeTables").textContent = activeTables.length;
+    document.getElementById(
+      "pendingAmount"
+    ).textContent = `$${totalPendingAmount.toFixed(2)}`;
+  }
+
+  async function refreshTableStatus() {
+    await loadTableStatus();
+    showToast("Table status refreshed", "success");
+  }
+
+  async function viewTableOrders(tableId) {
+    try {
+      // Fetch both pending orders and table status to get table number
+      const [ordersResponse, tablesResponse] = await Promise.all([
+        fetch(`/api/tables/${tableId}/pending-orders`),
+        fetch("/api/tables/status"),
+      ]);
+
+      if (!ordersResponse.ok) {
+        throw new Error(`HTTP error! status: ${ordersResponse.status}`);
+      }
+
+      const data = await ordersResponse.json();
+      const tableStatus = tablesResponse.ok ? await tablesResponse.json() : [];
+
+      // Get table number from the table status data
+      const tableInfo = tableStatus.find((t) => t.id === tableId);
+      const tableNumber = tableInfo ? tableInfo.table_number : tableId;
+
+      // Create a modal to show table orders
+      const modalHtml = `
+        <div class="modal fade" id="tableOrdersModal" tabindex="-1">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Table ${tableNumber} - Pending Orders</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="table-responsive">
+                  <table class="table table-striped">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Items</th>
+                        <th>Waiter</th>
+                        <th>Time</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${data.orders
+                        .map(
+                          (order) => `
+                        <tr>
+                          <td>#${order.id}</td>
+                          <td>
+                            ${order.items
+                              .map(
+                                (item) => `${item.item_name} (${item.quantity})`
+                              )
+                              .join(", ")}
+                          </td>
+                          <td>${order.waiter_name || "Unassigned"}</td>
+                          <td>${new Date(
+                            order.created_at
+                          ).toLocaleTimeString()}</td>
+                          <td>$${order.total_amount.toFixed(2)}</td>
+                        </tr>
+                      `
+                        )
+                        .join("")}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="mt-3">
+                  <strong>Total Pending: $${data.total_pending.toFixed(
+                    2
+                  )}</strong>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" onclick="printTableReceipt(${tableId})">Print Receipt</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Remove existing modal if any
+      const existingModal = document.getElementById("tableOrdersModal");
+      if (existingModal) {
+        existingModal.remove();
+      }
+
+      // Add modal to body
+      document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+      // Show modal
+      const modal = new bootstrap.Modal(
+        document.getElementById("tableOrdersModal")
+      );
+      modal.show();
+
+      // Clean up modal after it's hidden
+      document
+        .getElementById("tableOrdersModal")
+        .addEventListener("hidden.bs.modal", function () {
+          this.remove();
+        });
+    } catch (error) {
+      console.error("Error loading table orders:", error);
+      showToast("Failed to load table orders", "error");
+    }
+  }
+
+  async function processTablePayment(tableId) {
+    try {
+      const response = await fetch(`/api/tables/${tableId}/pending-orders`);
+      const data = await response.json();
+
+      if (data.orders.length === 0) {
+        showToast("No pending orders for this table", "warning");
+        return;
+      }
+
+      // Set up payment modal for table total
+      document.getElementById(
+        "paymentTotal"
+      ).textContent = `$${data.total_pending.toFixed(2)}`;
+      currentOrderId = tableId; // Use table ID for table payment
+
+      const paymentModal = new bootstrap.Modal(
+        document.getElementById("paymentModal")
+      );
+      paymentModal.show();
+    } catch (error) {
+      console.error("Error processing table payment:", error);
+      showToast("Failed to process table payment", "error");
+    }
+  }
+
+  async function loadInitialData() {
+    try {
+      await Promise.all([loadTables(), loadWaiters()]);
+      await loadOrders();
+      await loadTableStatus();
+      updateSummaryCards();
+    } catch (error) {
+      console.error("Error loading initial data:", error);
+      showError("Failed to load data");
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    // Set today's date as default
+    const today = new Date().toISOString().split("T")[0];
+    const dateFilterElement = document.getElementById("dateFilter");
+
+    if (dateFilterElement) {
+      dateFilterElement.value = today;
+    }
+
+    // Start async operations
+    (async function () {
+      await loadInitialData();
+      setupEventListeners();
+    })();
+  });
+
+  async function loadOrders(page = 1) {
+    try {
+      // Get current filter values
+      const statusFilter = document.getElementById("statusFilter").value;
+      const tableFilter = document.getElementById("tableFilter").value;
+      const waiterFilter = document.getElementById("waiterFilter").value;
+      const dateFilterElement = document.getElementById("dateFilter");
+      const dateFilter = dateFilterElement ? dateFilterElement.value : "";
+
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page,
+        per_page: perPage,
+      });
+
+      if (statusFilter) params.append("status", statusFilter);
+      if (tableFilter) params.append("table", tableFilter);
+      if (waiterFilter) params.append("waiter", waiterFilter);
+
+      // Add date parameter - always include a date
+      if (dateFilter && dateFilter.trim() !== "") {
+        params.append("date", dateFilter);
+      } else {
+        // If no date filter is set, use today's date
+        const today = new Date().toISOString().split("T")[0];
+        params.append("date", today);
+        // Also set the input field to today's date for consistency
+        if (dateFilterElement) {
+          dateFilterElement.value = today;
+        }
+      }
+
+      const response = await fetch(`/api/orders?${params}`);
+      const data = await response.json();
+
+      orders = data.orders;
+      currentPage = data.pagination.current_page;
+      totalPages = data.pagination.total_pages;
+      totalOrders = data.pagination.total_orders;
+
+      displayOrders(orders);
+      updatePaginationControls();
+      updateOrdersInfo();
+      updateSummaryCards(); // Update summary cards when filters are applied
+    } catch (error) {
+      console.error("Error loading orders:", error);
+      throw error;
+    }
+  }
+
+  async function loadTables() {
+    try {
+      const response = await fetch("/api/tables");
+      tables = await response.json();
+      populateTableFilter();
+    } catch (error) {
+      console.error("Error loading tables:", error);
+    }
+  }
+
+  async function loadWaiters() {
+    try {
+      const response = await fetch("/api/waiters");
+      waiters = await response.json();
+      populateWaiterFilter();
+    } catch (error) {
+      console.error("Error loading waiters:", error);
+    }
+  }
+
+  function populateTableFilter() {
+    const select = document.getElementById("tableFilter");
+    select.innerHTML = '<option value="">All Tables</option>';
+    tables.forEach((table) => {
+      select.innerHTML += `<option value="${table.id}">Table ${table.table_number}</option>`;
+    });
+  }
+
+  function populateWaiterFilter() {
+    const select = document.getElementById("waiterFilter");
+    select.innerHTML = '<option value="">All Waiters</option>';
+    waiters.forEach((waiter) => {
+      select.innerHTML += `<option value="${waiter.id}">${waiter.name}</option>`;
+    });
+  }
+
+  function displayOrders(orderList) {
+    const tbody = document.getElementById("ordersTable");
+
+    if (orderList.length === 0) {
+      tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center py-4">
+                        <i class="bi bi-receipt fs-1 text-muted opacity-50"></i>
+                        <p class="mt-2 text-muted">No orders found</p>
+                    </td>
+                </tr>
+            `;
+      return;
+    }
+
+    tbody.innerHTML = orderList
+      .map((order) => {
+        const table = tables.find((t) => t.id === order.table_id);
+        const waiter = waiters.find((w) => w.id === order.waiter_id);
+        const statusBadge = getStatusBadge(order.status);
+        const orderTime = new Date(order.timestamp).toLocaleString();
+
+        // Generate session indicator
+        const sessionIndicator = order.session_id
+          ? `<span class="badge bg-info" title="Session ID: ${
+              order.session_id
+            }">
+            <i class="bi bi-collection me-1"></i>${order.session_id.substring(
+              0,
+              8
+            )}...
+          </span>`
+          : `<span class="badge bg-light text-dark">Single</span>`;
+
+        return `
+                <tr>
+                    <td class="fw-semibold">#${order.id}</td>
+                    <td>${table ? `Table ${table.table_number}` : "N/A"}</td>
+                    <td>${waiter ? waiter.name : "N/A"}</td>
+                    <td>${sessionIndicator}</td>
+                    <td>${order.item_count || 0} items</td>
+                    <td class="fw-semibold">$${(order.total || 0).toFixed(
+                      2
+                    )}</td>
+                    <td>${statusBadge}</td>
+                    <td class="text-muted small">${orderTime}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="viewOrderDetails(${
+                              order.id
+                            })" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            ${
+                              order.status !== "paid"
+                                ? `
+                                <button class="btn btn-outline-success" onclick="markOrderAsPaid(${order.id})" title="Mark as Paid">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            `
+                                : ""
+                            }
+                            <button class="btn btn-outline-info" onclick="printReceipt(${
+                              order.id
+                            })" title="Print Receipt">
+                                <i class="bi bi-printer"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+      })
+      .join("");
+  }
+
+  function getStatusBadge(status) {
+    const badges = {
+      pending: '<span class="badge bg-warning">Pending</span>',
+      completed: '<span class="badge bg-info">Completed</span>',
+      paid: '<span class="badge bg-success">Paid</span>',
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+  }
+
+  function updateSummaryCards(filteredOrders = null) {
+    // For paginated data, we need to fetch summary data separately
+    // since the current page only shows a subset of orders
+    fetchSummaryData();
+  }
+
+  async function fetchSummaryData() {
+    try {
+      // Get current filter values
+      const statusFilter = document.getElementById("statusFilter").value;
+      const tableFilter = document.getElementById("tableFilter").value;
+      const waiterFilter = document.getElementById("waiterFilter").value;
+      const dateFilter = document.getElementById("dateFilter").value;
+
+      // Build query parameters for summary (get all matching records, not paginated)
+      const params = new URLSearchParams({
+        page: 1,
+        per_page: 10000, // Large number to get all records for summary
+      });
+
+      if (statusFilter) params.append("status", statusFilter);
+      if (tableFilter) params.append("table", tableFilter);
+      if (waiterFilter) params.append("waiter", waiterFilter);
+      if (dateFilter) params.append("date", dateFilter);
+
+      const response = await fetch(`/api/orders?${params}`);
+      const data = await response.json();
+      const allFilteredOrders = data.orders;
+
+      // Calculate summary statistics
+      document.getElementById("totalOrders").textContent =
+        allFilteredOrders.length;
+      document.getElementById("pendingOrders").textContent =
+        allFilteredOrders.filter((o) => o.status === "pending").length;
+      document.getElementById("paidOrders").textContent =
+        allFilteredOrders.filter((o) => o.status === "paid").length;
+
+      const revenue = allFilteredOrders
+        .filter((o) => o.status === "paid")
+        .reduce((sum, o) => sum + (o.total || 0), 0);
+
+      // Update the card title based on whether we're showing filtered data
+      const revenueCard = document
+        .querySelector("#todayRevenue")
+        .parentElement.querySelector(".card-title");
+      const hasActiveFilters =
+        statusFilter || tableFilter || waiterFilter || dateFilter;
+      if (hasActiveFilters) {
+        revenueCard.textContent = "Filtered Revenue";
+      } else {
+        revenueCard.textContent = "Today's Revenue";
+      }
+
+      document.getElementById("todayRevenue").textContent = `$${revenue.toFixed(
+        2
+      )}`;
+    } catch (error) {
+      console.error("Error fetching summary data:", error);
+    }
+  }
+
+  function setupEventListeners() {
+    // Filter listeners
+    ["statusFilter", "tableFilter", "waiterFilter", "dateFilter"].forEach(
+      (id) => {
+        document.getElementById(id).addEventListener("change", applyFilters);
+      }
+    );
+
+    // Per page selector
+    document
+      .getElementById("perPageSelect")
+      .addEventListener("change", function () {
+        perPage = parseInt(this.value);
+        currentPage = 1; // Reset to first page
+        loadOrders(currentPage);
+      });
+
+    // Payment method change
+    document
+      .getElementById("paymentMethod")
+      .addEventListener("change", function () {
+        const cashGroup = document.getElementById("cashAmountGroup");
+        cashGroup.style.display = this.value === "cash" ? "block" : "none";
+
+        if (this.value === "cash") {
+          document
+            .getElementById("cashAmount")
+            .addEventListener("input", calculateChange);
+        }
+      });
+
+    // Process payment
+    document
+      .getElementById("processPaymentBtn")
+      .addEventListener("click", processPayment);
+
+    // Process table payment
+    document.getElementById("payTableBtn").addEventListener("click", () => {
+      // Close table orders modal and open payment modal
+      bootstrap.Modal.getInstance(
+        document.getElementById("tableOrdersModal")
+      ).hide();
+
+      // Set payment total from table total
+      const tableTotal =
+        document.getElementById("tableOrdersTotal").textContent;
+      document.getElementById("paymentTotal").textContent = tableTotal;
+
+      // Show payment modal
+      new bootstrap.Modal(document.getElementById("paymentModal")).show();
+    });
+  }
+
+  function applyFilters() {
+    currentPage = 1; // Reset to first page when filters change
+    loadOrders(currentPage);
+  }
+
+  function updatePaginationControls() {
+    const container = document.getElementById("paginationContainer");
+    const controls = document.getElementById("paginationControls");
+
+    if (totalPages <= 1) {
+      container.style.display = "none";
+      return;
+    }
+
+    container.style.display = "flex";
+
+    let paginationHTML = "";
+
+    // Previous button
+    paginationHTML += `
+      <li class="page-item ${currentPage === 1 ? "disabled" : ""}">
+        <a class="page-link" href="#" onclick="changePage(${
+          currentPage - 1
+        })" ${currentPage === 1 ? 'tabindex="-1"' : ""}>
+          <i class="bi bi-chevron-left"></i>
+        </a>
+      </li>
+    `;
+
+    // Page numbers
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+
+    if (startPage > 1) {
+      paginationHTML += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(1)">1</a></li>`;
+      if (startPage > 2) {
+        paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      paginationHTML += `
+        <li class="page-item ${i === currentPage ? "active" : ""}">
+          <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+        </li>
+      `;
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        paginationHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+      }
+      paginationHTML += `<li class="page-item"><a class="page-link" href="#" onclick="changePage(${totalPages})">${totalPages}</a></li>`;
+    }
+
+    // Next button
+    paginationHTML += `
+      <li class="page-item ${currentPage === totalPages ? "disabled" : ""}">
+        <a class="page-link" href="#" onclick="changePage(${
+          currentPage + 1
+        })" ${currentPage === totalPages ? 'tabindex="-1"' : ""}>
+          <i class="bi bi-chevron-right"></i>
+        </a>
+      </li>
+    `;
+
+    controls.innerHTML = paginationHTML;
+  }
+
+  function updateOrdersInfo() {
+    const start = (currentPage - 1) * perPage + 1;
+    const end = Math.min(currentPage * perPage, totalOrders);
+
+    document.getElementById(
+      "ordersInfo"
+    ).textContent = `${totalOrders} total orders`;
+    document.getElementById(
+      "paginationInfo"
+    ).textContent = `Showing ${start} to ${end} of ${totalOrders} orders`;
+  }
+
+  function changePage(page) {
+    if (page < 1 || page > totalPages || page === currentPage) {
+      return;
+    }
+    loadOrders(page);
+  }
+
+  async function viewOrderDetails(orderId) {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`);
+      const order = await response.json();
+
+      currentOrderId = orderId;
+
+      const table = tables.find((t) => t.id === order.table_id);
+      const waiter = waiters.find((w) => w.id === order.waiter_id);
+
+      const content = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Order Information</h6>
+                        <p><strong>Order #:</strong> ${order.id}</p>
+                        <p><strong>Table:</strong> ${
+                          table ? `Table ${table.table_number}` : "N/A"
+                        }</p>
+                        <p><strong>Waiter:</strong> ${
+                          waiter ? waiter.name : "N/A"
+                        }</p>
+                        <p><strong>Status:</strong> ${getStatusBadge(
+                          order.status
+                        )}</p>
+                        <p><strong>Time:</strong> ${new Date(
+                          order.timestamp
+                        ).toLocaleString()}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Order Summary</h6>
+                        <p><strong>Subtotal:</strong> $${(
+                          order.total || 0
+                        ).toFixed(2)}</p>
+                        <p><strong>Tax:</strong> $0.00</p>
+                        <p><strong>Total:</strong> $${(
+                          order.total || 0
+                        ).toFixed(2)}</p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h6 class="fw-bold">Order Items</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${
+                              order.items
+                                ? order.items
+                                    .map(
+                                      (item) => `
+                                <tr>
+                                    <td>${item.name}</td>
+                                    <td>${item.quantity}</td>
+                                    <td>$${item.price.toFixed(2)}</td>
+                                    <td>$${(item.quantity * item.price).toFixed(
+                                      2
+                                    )}</td>
+                                </tr>
+                            `
+                                    )
+                                    .join("")
+                                : '<tr><td colspan="4">No items found</td></tr>'
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+      document.getElementById("orderDetailsContent").innerHTML = content;
+
+      // Show/hide action buttons based on order status
+      const printBtn = document.getElementById("printReceiptBtn");
+      const paidBtn = document.getElementById("markPaidBtn");
+
+      printBtn.style.display = "inline-block";
+      paidBtn.style.display = order.status !== "paid" ? "inline-block" : "none";
+
+      // Set up button event listeners
+      printBtn.onclick = () => printReceipt(orderId);
+      paidBtn.onclick = () => {
+        bootstrap.Modal.getInstance(
+          document.getElementById("orderDetailsModal")
+        ).hide();
+        markOrderAsPaid(orderId);
+      };
+
+      new bootstrap.Modal(document.getElementById("orderDetailsModal")).show();
+    } catch (error) {
+      console.error("Error loading order details:", error);
+      showError("Failed to load order details");
+    }
+  }
+
+  function markAsPaid(orderId) {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+
+    currentOrderId = orderId;
+    document.getElementById("paymentTotal").textContent = `$${(
+      order.total || 0
+    ).toFixed(2)}`;
+
+    // Reset form
+    document.getElementById("paymentMethod").value = "cash";
+    document.getElementById("cashAmount").value = "";
+    document.getElementById("changeAmount").textContent = "$0.00";
+    document.getElementById("cashAmountGroup").style.display = "block";
+
+    new bootstrap.Modal(document.getElementById("paymentModal")).show();
+  }
+
+  function calculateChange() {
+    const total = parseFloat(
+      document.getElementById("paymentTotal").textContent.replace("$", "")
+    );
+    const cashReceived =
+      parseFloat(document.getElementById("cashAmount").value) || 0;
+    const change = Math.max(0, cashReceived - total);
+    document.getElementById("changeAmount").textContent = `$${change.toFixed(
+      2
+    )}`;
+  }
+
+  async function processPayment() {
+    const paymentMethod = document.getElementById("paymentMethod").value;
+    const total = parseFloat(
+      document.getElementById("paymentTotal").textContent.replace("$", "")
+    );
+
+    let cashReceived = null;
+    if (paymentMethod === "cash") {
+      cashReceived = parseFloat(document.getElementById("cashAmount").value);
+      if (!cashReceived || cashReceived < total) {
+        showError("Cash amount must be at least the order total");
+        return;
+      }
+    }
+
+    try {
+      // Check if this is a table payment (currentOrderId represents table ID)
+      const isTablePayment =
+        currentOrderId &&
+        typeof currentOrderId === "number" &&
+        currentOrderId > 0;
+
+      let response;
+      if (isTablePayment) {
+        // For table payments, use the table payment endpoint
+        response = await fetch(`/api/orders/table/${currentOrderId}/pay`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            payment_method: paymentMethod,
+            cash_received: cashReceived,
+          }),
+        });
+      } else {
+        // For individual order payments
+        response = await fetch(`/api/orders/${currentOrderId}/pay`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            payment_method: paymentMethod,
+            cash_received: cashReceived,
+          }),
+        });
+      }
+
+      if (response.ok) {
+        bootstrap.Modal.getInstance(
+          document.getElementById("paymentModal")
+        ).hide();
+
+        // Close table orders modal if it exists
+        const tableOrdersModal = document.getElementById("tableOrdersModal");
+        if (tableOrdersModal) {
+          const modal = bootstrap.Modal.getInstance(tableOrdersModal);
+          if (modal) modal.hide();
+        }
+
+        showSuccess("Payment processed successfully");
+        await loadOrders();
+        await loadTableStatus(); // Refresh table status
+        updateSummaryCards();
+      } else {
+        const errorData = await response.json();
+        showError(errorData.error || "Failed to process payment");
+      }
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      showError("Failed to process payment");
+    }
+  }
+
+  async function printReceipt(orderId) {
+    try {
+      const response = await fetch(`/api/orders/${orderId}/receipt`);
+      const receiptData = await response.text();
+
+      // Open print window
+      const printWindow = window.open("", "_blank");
+      printWindow.document.write(
+        `
+                <html>
+                    <head>
+                        <title>Receipt #${orderId}</title>
+                        <style>
+                            body { 
+                                font-family: 'Courier New', monospace; 
+                                font-size: 11px; 
+                                margin: 10px; 
+                                line-height: 1.2;
+                                color: #000;
+                            }
+                            .receipt { 
+                                max-width: 280px; 
+                                margin: 0 auto; 
+                                padding: 5px;
+                            }
+                            .receipt-content { 
+                                max-width: 280px; 
+                                margin: 0 auto; 
+                            }
+                            .logo-container img { 
+                                display: block; 
+                                margin: 0 auto; 
+                                max-width: 120px;
+                                max-height: 60px;
+                            }
+                            .center { text-align: center; }
+                            .line { border-bottom: 1px dashed #000; margin: 5px 0; }
+                            @media print {
+                              body { 
+                                margin: 0; 
+                                padding: 0;
+                                font-size: 10px;
+                              }
+                              .receipt { 
+                                margin: 0; 
+                                padding: 0;
+                                max-width: none;
+                                width: 58mm;
+                              }
+                              .receipt-content { 
+                                margin: 0; 
+                                padding: 2px;
+                                max-width: none;
+                              }
+                            }
+                            @page {
+                              margin: 0 15mm;
+                              size: auto;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="receipt">
+                            ${receiptData}
+                        </div>
+                        <scr` +
+          `ipt>
+                            window.onload = function() {
+                                window.print();
+                                window.close();
+                            }
+                        </scr` +
+          `ipt>
+                    </body>
+                </html>
+            `
+      );
+      printWindow.document.close();
+    } catch (error) {
+      console.error("Error printing receipt:", error);
+      showError("Failed to print receipt");
+    }
+  }
+
+  async function refreshOrders() {
+    await loadOrders(currentPage);
+    await loadTableStatus(); // Also refresh table status
+    updateSummaryCards();
+    showSuccess("Orders refreshed");
+  }
+
+  function showSuccess(message) {
+    showToast(message, "success");
+  }
+
+  function showError(message) {
+    showToast(message, "danger");
+  }
+
+  function showToast(message, type) {
+    const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="bi bi-${
+                          type === "success"
+                            ? "check-circle"
+                            : "exclamation-triangle"
+                        } me-2"></i>
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+    let toastContainer = document.getElementById("toastContainer");
+    if (!toastContainer) {
+      toastContainer = document.createElement("div");
+      toastContainer.id = "toastContainer";
+      toastContainer.className =
+        "toast-container position-fixed top-0 end-0 p-3";
+      toastContainer.style.zIndex = "9999";
+      document.body.appendChild(toastContainer);
+    }
+
+    toastContainer.insertAdjacentHTML("beforeend", toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+
+    toastElement.addEventListener("hidden.bs.toast", function () {
+      this.remove();
+    });
+  }
+
+  // Mark table orders as paid without cash received dialog
+  async function markTableAsPaid(tableId) {
+    try {
+      // Show confirmation dialog
+      if (!confirm("Mark all pending orders for this table as paid?")) {
+        return;
+      }
+
+      const response = await fetch(`/api/orders/table/${tableId}/mark-paid`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showToast(
+          `Table orders marked as paid successfully! Total: $${result.total_amount.toFixed(
+            2
+          )}`,
+          "success"
+        );
+
+        // Refresh table status and dashboard data
+        await loadTableStatus();
+        await loadInitialData();
+      } else {
+        showToast(result.error || "Failed to mark orders as paid", "error");
+      }
+    } catch (error) {
+      console.error("Error marking table orders as paid:", error);
+      showToast("Error marking orders as paid", "error");
+    }
+  }
+
+  // Mark individual order as paid without cash received dialog
+  async function markOrderAsPaid(orderId) {
+    try {
+      // Show confirmation dialog
+      if (!confirm("Mark this order as paid?")) {
+        return;
+      }
+
+      const response = await fetch(`/api/orders/${orderId}/mark-paid`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showToast(
+          `Order marked as paid successfully! Amount: $${result.total_amount.toFixed(
+            2
+          )}`,
+          "success"
+        );
+
+        // Refresh table status and dashboard data
+        await loadTableStatus();
+        await loadInitialData();
+
+        // Close any open modals
+        const modals = document.querySelectorAll(".modal.show");
+        modals.forEach((modal) => {
+          const bsModal = bootstrap.Modal.getInstance(modal);
+          if (bsModal) {
+            bsModal.hide();
+          }
+        });
+      } else {
+        showToast(result.error || "Failed to mark order as paid", "error");
+      }
+    } catch (error) {
+      console.error("Error marking order as paid:", error);
+      showToast("Error marking order as paid", "error");
+    }
+  }
+
+  async function printTableReceipt(tableId) {
+    try {
+      const response = await fetch(`/api/tables/${tableId}/receipt`);
+
+      if (response.ok) {
+        const receiptContent = await response.text();
+
+        // Open a new window for printing
+        const printWindow = window.open("", "_blank");
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Table Receipt</title>
+              <style>
+                body { 
+                  font-family: 'Courier New', monospace; 
+                  font-size: 12px; 
+                  line-height: 1.4; 
+                  margin: 20px; 
+                }
+                .receipt-content {
+                  max-width: 300px;
+                  margin: 0 auto;
+                }
+                .logo-container img {
+                  display: block;
+                  margin: 0 auto;
+                }
+                @media print {
+                  body { margin: 0; }
+                  .receipt-content { margin: 0; }
+                }
+                @page {
+                  margin: 0 15mm;
+                  size: auto;
+                }
+              </style>
+            </head>
+            <body>${receiptContent}</body>
+          </html>
+        `);
+        printWindow.document.close();
+
+        // Auto-print after a short delay
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+
+        showToast("Receipt opened for printing", "success");
+      } else {
+        const errorText = await response.text();
+        showToast(errorText || "Failed to generate receipt", "error");
+      }
+    } catch (error) {
+      console.error("Error printing receipt:", error);
+      showToast("Error printing receipt", "error");
+    }
+  }
+</script>
+{% endblock %}
