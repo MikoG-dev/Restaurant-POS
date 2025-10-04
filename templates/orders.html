@@ -188,7 +188,7 @@ block extra_css %}
 
   <!-- Filters -->
   <div class="row mb-4">
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select class="form-select" id="statusFilter">
         <option value="">All Orders</option>
         <option value="pending">Pending</option>
@@ -196,17 +196,24 @@ block extra_css %}
         <option value="paid">Paid</option>
       </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select class="form-select" id="tableFilter">
         <option value="">All Tables</option>
       </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select class="form-select" id="waiterFilter">
         <option value="">All Waiters</option>
       </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
+      <select class="form-select" id="paymentMethodFilter">
+        <option value="">All</option>
+        <option value="cash">Cash</option>
+        <option value="card">Card</option>
+      </select>
+    </div>
+    <div class="col-md-4">
       <input type="date" class="form-control" id="dateFilter" />
     </div>
   </div>
@@ -415,6 +422,77 @@ block extra_css %}
           style="display: none"
         >
           <i class="bi bi-check-circle me-2"></i>Mark as Paid
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Confirmation Modal -->
+<div class="modal fade" id="paymentConfirmationModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-credit-card me-2"></i>Payment Confirmation
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center mb-4">
+          <h6 id="paymentConfirmationMessage" class="mb-3">
+            Mark all pending orders for this table as paid?
+          </h6>
+          <div class="fs-4 fw-bold text-primary" id="paymentConfirmationTotal">
+            $0.00
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-semibold mb-3"
+            >Select Payment Method:</label
+          >
+          <div class="row g-3">
+            <div class="col-6">
+              <button
+                type="button"
+                class="btn btn-outline-success w-100 payment-method-btn"
+                data-method="cash"
+                style="height: 80px; border-width: 2px"
+              >
+                <i class="bi bi-cash-coin fs-2 d-block"></i>
+                <span class="fw-semibold">Cash</span>
+              </button>
+            </div>
+            <div class="col-6">
+              <button
+                type="button"
+                class="btn btn-outline-primary w-100 payment-method-btn"
+                data-method="card"
+                style="height: 80px; border-width: 2px"
+              >
+                <i class="bi bi-credit-card fs-2 d-block"></i>
+                <span class="fw-semibold">Card</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-2"></i>Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn-success"
+          id="confirmPaymentBtn"
+          disabled
+        >
+          <i class="bi bi-check-circle me-2"></i>Pay
         </button>
       </div>
     </div>
@@ -866,6 +944,7 @@ block extra_css %}
       const waiterFilter = document.getElementById("waiterFilter").value;
       const dateFilterElement = document.getElementById("dateFilter");
       const dateFilter = dateFilterElement ? dateFilterElement.value : "";
+      const paymentMethodFilter = document.getElementById("paymentMethodFilter").value;
 
       // Build query parameters
       const params = new URLSearchParams({
@@ -876,6 +955,7 @@ block extra_css %}
       if (statusFilter) params.append("status", statusFilter);
       if (tableFilter) params.append("table", tableFilter);
       if (waiterFilter) params.append("waiter", waiterFilter);
+      if (paymentMethodFilter) params.append("payment_method", paymentMethodFilter);
 
       // Add date parameter - always include a date
       if (dateFilter && dateFilter.trim() !== "") {
@@ -1041,6 +1121,7 @@ block extra_css %}
       const tableFilter = document.getElementById("tableFilter").value;
       const waiterFilter = document.getElementById("waiterFilter").value;
       const dateFilter = document.getElementById("dateFilter").value;
+      const paymentMethodFilter = document.getElementById("paymentMethodFilter").value;
 
       // Build query parameters for summary (get all matching records, not paginated)
       const params = new URLSearchParams({
@@ -1052,6 +1133,7 @@ block extra_css %}
       if (tableFilter) params.append("table", tableFilter);
       if (waiterFilter) params.append("waiter", waiterFilter);
       if (dateFilter) params.append("date", dateFilter);
+      if (paymentMethodFilter) params.append("payment_method", paymentMethodFilter);
 
       const response = await fetch(`/api/orders?${params}`);
       const data = await response.json();
@@ -1091,7 +1173,7 @@ block extra_css %}
 
   function setupEventListeners() {
     // Filter listeners
-    ["statusFilter", "tableFilter", "waiterFilter", "dateFilter"].forEach(
+    ["statusFilter", "tableFilter", "waiterFilter", "dateFilter", "paymentMethodFilter"].forEach(
       (id) => {
         document.getElementById(id).addEventListener("change", applyFilters);
       }
@@ -1573,88 +1655,205 @@ block extra_css %}
     });
   }
 
-  // Mark table orders as paid without cash received dialog
+  // Mark table orders as paid with payment method selection
   async function markTableAsPaid(tableId) {
     try {
-      // Show confirmation dialog
-      if (!confirm("Mark all pending orders for this table as paid?")) {
+      // Get table orders to calculate total
+      const response = await fetch(`/api/tables/${tableId}/pending-orders`);
+      const data = await response.json();
+
+      if (data.orders.length === 0) {
+        showToast("No pending orders for this table", "warning");
         return;
       }
 
-      const response = await fetch(`/api/orders/table/${tableId}/mark-paid`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      // Set up payment confirmation modal
+      document.getElementById("paymentConfirmationMessage").textContent =
+        "Mark all pending orders for this table as paid?";
+      document.getElementById(
+        "paymentConfirmationTotal"
+      ).textContent = `$${data.total_pending.toFixed(2)}`;
 
-      const result = await response.json();
+      // Store table ID for later use
+      window.currentPaymentTableId = tableId;
+      window.currentPaymentType = "table";
 
-      if (result.success) {
-        showToast(
-          `Table orders marked as paid successfully! Total: $${result.total_amount.toFixed(
-            2
-          )}`,
-          "success"
-        );
+      // Reset payment method selection
+      resetPaymentMethodSelection();
 
-        // Refresh table status and dashboard data
-        await loadTableStatus();
-        await loadInitialData();
-      } else {
-        showToast(result.error || "Failed to mark orders as paid", "error");
-      }
+      const paymentConfirmationModal = new bootstrap.Modal(
+        document.getElementById("paymentConfirmationModal")
+      );
+      paymentConfirmationModal.show();
     } catch (error) {
-      console.error("Error marking table orders as paid:", error);
-      showToast("Error marking orders as paid", "error");
+      console.error("Error preparing table payment:", error);
+      showToast("Failed to prepare table payment", "error");
     }
   }
 
-  // Mark individual order as paid without cash received dialog
+  // Mark individual order as paid with payment method selection
   async function markOrderAsPaid(orderId) {
     try {
-      // Show confirmation dialog
-      if (!confirm("Mark this order as paid?")) {
+      // Get order details
+      const order = orders.find((o) => o.id === orderId);
+      if (!order) {
+        showToast("Order not found", "error");
         return;
       }
 
-      const response = await fetch(`/api/orders/${orderId}/mark-paid`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      // Set up payment confirmation modal
+      document.getElementById("paymentConfirmationMessage").textContent =
+        "Mark this order as paid?";
+      document.getElementById("paymentConfirmationTotal").textContent = `$${(
+        order.total || 0
+      ).toFixed(2)}`;
 
-      const result = await response.json();
+      // Store order ID for later use
+      window.currentPaymentOrderId = orderId;
+      window.currentPaymentType = "order";
 
-      if (result.success) {
-        showToast(
-          `Order marked as paid successfully! Amount: $${result.total_amount.toFixed(
-            2
-          )}`,
-          "success"
-        );
+      // Reset payment method selection
+      resetPaymentMethodSelection();
 
-        // Refresh table status and dashboard data
-        await loadTableStatus();
-        await loadInitialData();
-
-        // Close any open modals
-        const modals = document.querySelectorAll(".modal.show");
-        modals.forEach((modal) => {
-          const bsModal = bootstrap.Modal.getInstance(modal);
-          if (bsModal) {
-            bsModal.hide();
-          }
-        });
-      } else {
-        showToast(result.error || "Failed to mark order as paid", "error");
-      }
+      const paymentConfirmationModal = new bootstrap.Modal(
+        document.getElementById("paymentConfirmationModal")
+      );
+      paymentConfirmationModal.show();
     } catch (error) {
-      console.error("Error marking order as paid:", error);
-      showToast("Error marking order as paid", "error");
+      console.error("Error preparing order payment:", error);
+      showToast("Error preparing order payment", "error");
     }
   }
+
+  // Reset payment method selection
+  function resetPaymentMethodSelection() {
+    document.querySelectorAll(".payment-method-btn").forEach((btn) => {
+      btn.classList.remove("btn-success", "btn-primary");
+      btn.classList.add(
+        btn.dataset.method === "cash"
+          ? "btn-outline-success"
+          : "btn-outline-primary"
+      );
+    });
+    document.getElementById("confirmPaymentBtn").disabled = true;
+    window.selectedPaymentMethod = null;
+  }
+
+  // Handle payment method selection
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".payment-method-btn")) {
+      const btn = e.target.closest(".payment-method-btn");
+      const method = btn.dataset.method;
+
+      // Reset all buttons
+      document.querySelectorAll(".payment-method-btn").forEach((b) => {
+        b.classList.remove("btn-success", "btn-primary");
+        b.classList.add(
+          b.dataset.method === "cash"
+            ? "btn-outline-success"
+            : "btn-outline-primary"
+        );
+      });
+
+      // Activate selected button
+      btn.classList.remove("btn-outline-success", "btn-outline-primary");
+      btn.classList.add(method === "cash" ? "btn-success" : "btn-primary");
+
+      // Enable pay button
+      document.getElementById("confirmPaymentBtn").disabled = false;
+      window.selectedPaymentMethod = method;
+    }
+  });
+
+  // Handle payment confirmation
+  document
+    .getElementById("confirmPaymentBtn")
+    .addEventListener("click", async function () {
+      if (!window.selectedPaymentMethod) {
+        showToast("Please select a payment method", "warning");
+        return;
+      }
+
+      try {
+        let response;
+
+        if (window.currentPaymentType === "table") {
+          response = await fetch(
+            `/api/orders/table/${window.currentPaymentTableId}/mark-paid`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                payment_method: window.selectedPaymentMethod,
+              }),
+            }
+          );
+        } else if (window.currentPaymentType === "order") {
+          response = await fetch(
+            `/api/orders/${window.currentPaymentOrderId}/mark-paid`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                payment_method: window.selectedPaymentMethod,
+              }),
+            }
+          );
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Close modal
+          bootstrap.Modal.getInstance(
+            document.getElementById("paymentConfirmationModal")
+          ).hide();
+
+          // Show success message
+          const paymentMethodText =
+            window.selectedPaymentMethod === "cash" ? "Cash" : "Card";
+          if (window.currentPaymentType === "table") {
+            showToast(
+              `Table orders marked as paid successfully! Total: $${result.total_amount.toFixed(
+                2
+              )} (${paymentMethodText})`,
+              "success"
+            );
+          } else {
+            showToast(
+              `Order marked as paid successfully! Amount: $${result.total_amount.toFixed(
+                2
+              )} (${paymentMethodText})`,
+              "success"
+            );
+          }
+
+          // Refresh data
+          await loadTableStatus();
+          await loadInitialData();
+
+          // Close any other open modals
+          const modals = document.querySelectorAll(".modal.show");
+          modals.forEach((modal) => {
+            if (modal.id !== "paymentConfirmationModal") {
+              const bsModal = bootstrap.Modal.getInstance(modal);
+              if (bsModal) {
+                bsModal.hide();
+              }
+            }
+          });
+        } else {
+          showToast(result.error || "Failed to process payment", "error");
+        }
+      } catch (error) {
+        console.error("Error processing payment:", error);
+        showToast("Error processing payment", "error");
+      }
+    });
 
   async function printTableReceipt(tableId) {
     try {

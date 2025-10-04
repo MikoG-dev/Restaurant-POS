@@ -658,6 +658,7 @@ def api_orders():
     table_filter = request.args.get('table', '')
     waiter_filter = request.args.get('waiter', '')
     date_filter = request.args.get('date', '')
+    payment_method_filter = request.args.get('payment_method', '')
     
     # Get sorting parameters
     sort_by = request.args.get('sort_by', 'created_at')
@@ -699,6 +700,10 @@ def api_orders():
         where_conditions.append('DATE(o.created_at) = ?')
         params.append(date_filter)
     
+    if payment_method_filter:
+        where_conditions.append('p.payment_method = ?')
+        params.append(payment_method_filter)
+    
     where_clause = 'WHERE ' + ' AND '.join(where_conditions) if where_conditions else ''
     
     # Get total count for pagination
@@ -707,6 +712,7 @@ def api_orders():
         FROM orders o
         LEFT JOIN tables t ON o.table_id = t.id
         LEFT JOIN waiters w ON o.waiter_id = w.id
+        LEFT JOIN payments p ON o.id = p.order_id
         {where_clause}
     '''
     
@@ -738,6 +744,7 @@ def api_orders():
         LEFT JOIN tables t ON o.table_id = t.id
         LEFT JOIN waiters w ON o.waiter_id = w.id
         LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN payments p ON o.id = p.order_id
         {where_clause}
         GROUP BY o.id, o.table_id, o.waiter_id, o.total_amount, o.status, o.created_at, t.table_number, w.name, w.id
         ORDER BY {order_by_column} {sort_order}
@@ -1709,6 +1716,87 @@ def clear_all_data():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/reports/export/amount')
+@login_required
+def export_amount_csv():
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        if not start_date or not end_date:
+            return jsonify({'error': 'Start date and end date are required'}), 400
+        
+        conn = get_db_connection()
+        
+        # Get sold items data with their prices at time of sale and current stock
+        sold_items = conn.execute('''
+            SELECT 
+                mi.name as item_name,
+                SUM(oi.quantity) as total_sold,
+                oi.price as sale_price,
+                mi.price as current_price,
+                SUM(oi.quantity * oi.price) as total_revenue,
+                COALESCE(
+                    (SELECT SUM(quantity) FROM order_items oi2 
+                     JOIN orders o2 ON oi2.order_id = o2.id 
+                     WHERE oi2.menu_item_id = mi.id), 0
+                ) as current_stock_level
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            JOIN menu_items mi ON oi.menu_item_id = mi.id
+            WHERE DATE(o.created_at) BETWEEN ? AND ?
+            GROUP BY mi.id, mi.name, oi.price, mi.price
+            ORDER BY total_sold DESC
+        ''', (start_date, end_date)).fetchall()
+        
+        conn.close()
+        
+        # Create CSV content
+        import io
+        import csv
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            'Item Name', 
+            'Quantity Sold', 
+            'Price at Sale', 
+            'Current Price',
+            'Current Stock Level', 
+            'Total Revenue Generated'
+        ])
+        
+        # Write data
+        total_revenue = 0
+        for item in sold_items:
+            total_revenue += item['total_revenue']
+            writer.writerow([
+                f"{item['item_name']} ({item['total_sold']} sold)",
+                item['total_sold'],
+                f"${item['sale_price']:.2f}",
+                f"${item['current_price']:.2f}",
+                item['current_stock_level'],
+                f"${item['total_revenue']:.2f}"
+            ])
+        
+        # Add total row
+        writer.writerow([])
+        writer.writerow(['TOTAL REVENUE', '', '', '', '', f"${total_revenue:.2f}"])
+        
+        # Create response
+        from flask import Response
+        output.seek(0)
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=amount_report_{start_date}_to_{end_date}.csv'}
+        )
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/reports/export/csv')
 @login_required
 def export_reports_csv():
@@ -1887,11 +1975,15 @@ def api_table_pending_orders(table_id):
 @app.route('/api/orders/<int:order_id>/mark-paid', methods=['POST'])
 @login_required
 def api_mark_order_paid(order_id):
-    """Mark a single order as paid without cash received dialog"""
+    """Mark a single order as paid with payment method selection"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
+        # Get request data
+        data = request.get_json() or {}
+        payment_method = data.get('payment_method', 'cash')
+        
         # Get order details
         order = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
         if not order:
@@ -1912,18 +2004,19 @@ def api_mark_order_paid(order_id):
             WHERE id = ?
         ''', ('paid', local_time, order_id))
         
-        # Create payment record with default payment method
+        # Create payment record with selected payment method
         cursor.execute('''
             INSERT INTO payments (order_id, total_amount, payment_method, paid_at)
             VALUES (?, ?, ?, ?)
-        ''', (order_id, order['total_amount'], 'cash', local_time))
+        ''', (order_id, order['total_amount'], payment_method, local_time))
         
         conn.commit()
         
         return jsonify({
             'success': True,
             'order_id': order_id,
-            'total_amount': float(order['total_amount'])
+            'total_amount': float(order['total_amount']),
+            'payment_method': payment_method
         })
         
     except Exception as e:
@@ -1934,11 +2027,15 @@ def api_mark_order_paid(order_id):
 @app.route('/api/orders/table/<int:table_id>/mark-paid', methods=['POST'])
 @login_required
 def api_mark_table_orders_paid(table_id):
-    """Mark all pending orders for a table as paid without cash received dialog"""
+    """Mark all pending orders for a table as paid with payment method selection"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
+        # Get request data
+        data = request.get_json() or {}
+        payment_method = data.get('payment_method', 'cash')
+        
         # Get all pending orders for this table
         pending_orders = conn.execute('''
             SELECT id, total_amount, waiter_id FROM orders 
@@ -1970,7 +2067,7 @@ def api_mark_table_orders_paid(table_id):
         cursor.execute('''
             INSERT INTO payments (order_id, total_amount, payment_method, paid_at)
             VALUES (?, ?, ?, ?)
-        ''', (last_order_id, total_bill, 'cash', local_time))
+        ''', (last_order_id, total_bill, payment_method, local_time))
         
         conn.commit()
         
@@ -1978,7 +2075,8 @@ def api_mark_table_orders_paid(table_id):
             'success': True,
             'table_id': table_id,
             'total_amount': float(total_bill),
-            'orders_count': len(pending_orders)
+            'orders_count': len(pending_orders),
+            'payment_method': payment_method
         })
         
     except Exception as e:

@@ -112,12 +112,12 @@ block content %}
         <div class="mt-3">
           <div class="row g-2">
             <div class="col-6">
-              <button
+              <!-- <button
                 class="btn btn-outline-primary btn-sm w-100"
                 id="holdOrderBtn"
               >
                 <i class="bi bi-pause-circle me-1"></i>Hold
-              </button>
+              </button> -->
             </div>
             <div class="col-6">
               <button
@@ -637,16 +637,13 @@ block content %}
         document.getElementById("tableSelect").value = "";
         document.getElementById("waiterSelect").value = "";
         updateProcessButton();
-
-        // Show success message
-        alert('Order placed successfully! Payment can be processed later from the Orders page.');
       } else if (orderResponse.status === 409) {
         // Handle table assignment conflict
         const errorResult = await orderResponse.json();
-        
+
         if (errorResult.can_force) {
           const confirmMessage = `${errorResult.error}\n\nWould you like to add these items to the existing order anyway?`;
-          
+
           if (confirm(confirmMessage)) {
             // Retry with force_add flag
             const forceResponse = await fetch("/api/orders", {
@@ -682,19 +679,22 @@ block content %}
               updateProcessButton();
 
               // Show success message
-              alert('Additional items added to existing order successfully!');
+              alert("Additional items added to existing order successfully!");
             } else {
               const forceErrorResult = await forceResponse.json();
-              throw new Error(forceErrorResult.error || 'Failed to add items to existing order');
+              throw new Error(
+                forceErrorResult.error ||
+                  "Failed to add items to existing order"
+              );
             }
           }
         } else {
-          throw new Error(errorResult.error || 'Table assignment conflict');
+          throw new Error(errorResult.error || "Table assignment conflict");
         }
       } else {
         // Get the specific error message from the server
         const errorResult = await orderResponse.json();
-        throw new Error(errorResult.error || 'Failed to place order');
+        throw new Error(errorResult.error || "Failed to place order");
       }
     } catch (error) {
       console.error("Error placing order:", error);

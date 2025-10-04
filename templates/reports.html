@@ -10,6 +10,9 @@ block content %}
       <button class="btn btn-outline-primary" onclick="exportToCsv()">
         <i class="bi bi-file-earmark-spreadsheet me-2"></i>Export CSV
       </button>
+      <button class="btn btn-outline-success" onclick="exportAmountCsv()">
+        <i class="bi bi-currency-dollar me-2"></i>Export Amount
+      </button>
       <!-- <button class="btn btn-outline-danger" onclick="exportToPdf()">
         <i class="bi bi-file-earmark-pdf me-2"></i>Export PDF
       </button> -->
@@ -30,7 +33,7 @@ block content %}
           <label for="endDate" class="form-label fw-semibold">End Date</label>
           <input type="date" class="form-control" id="endDate" />
         </div>
-        <div class="col-md-3">
+        <!-- <div class="col-md-3">
           <label for="reportType" class="form-label fw-semibold"
             >Report Type</label
           >
@@ -39,7 +42,7 @@ block content %}
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-        </div>
+        </div> -->
         <div class="col-md-3">
           <button class="btn btn-primary w-100" onclick="generateReport()">
             <i class="bi bi-bar-chart me-2"></i>Generate Report
@@ -556,6 +559,42 @@ block content %}
     loadingElements.forEach((el) => {
       el.style.display = show ? "inline-block" : "none";
     });
+  }
+
+  async function exportAmountCsv() {
+    try {
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
+
+      if (!startDate || !endDate) {
+        showError("Please select both start and end dates");
+        return;
+      }
+
+      const response = await fetch(
+        `/api/reports/export/amount?start_date=${startDate}&end_date=${endDate}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `amount_report_${startDate}_to_${endDate}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showSuccess("Amount report exported successfully");
+    } catch (error) {
+      console.error("Error exporting Amount CSV:", error);
+      showError("Failed to export Amount report");
+    }
   }
 
   async function exportToCsv() {
