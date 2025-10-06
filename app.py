@@ -441,6 +441,33 @@ def api_waiters():
     conn.close()
     return jsonify([dict(waiter) for waiter in waiters])
 
+@app.route('/api/kitchen-setting-status')
+@login_required
+def get_kitchen_setting_status():
+    """Get the current status of the kitchen printing setting"""
+    try:
+        conn = get_db_connection()
+        result = conn.execute('SELECT value FROM settings WHERE key = ?', ('enable_kitchen_print',)).fetchone()
+        conn.close()
+        
+        if result:
+            is_enabled = result['value'] == 'true'
+            return jsonify({
+                'success': True,
+                'enabled': is_enabled
+            })
+        else:
+            # Setting doesn't exist, default to disabled
+            return jsonify({
+                'success': True,
+                'enabled': False
+            })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/orders', methods=['POST'])
 @login_required
 def api_create_order():
@@ -480,12 +507,16 @@ def api_create_order():
         # Add items to existing order (either same waiter or forced)
         order_id = existing_order['id']
         
+        # Store the IDs of newly added items for kitchen printing
+        new_item_ids = []
+        
         # Add new items to the existing order
         for item in data['items']:
             cursor.execute('''
                 INSERT INTO order_items (order_id, menu_item_id, quantity, price)
                 VALUES (?, ?, ?, ?)
             ''', (order_id, item['menu_item_id'], item['quantity'], item['price']))
+            new_item_ids.append(cursor.lastrowid)
         
         # Update total amount
         new_total = conn.execute('''
@@ -495,6 +526,9 @@ def api_create_order():
         ''', (order_id,)).fetchone()['total']
         
         cursor.execute('UPDATE orders SET total_amount = ? WHERE id = ?', (new_total, order_id))
+        
+        # Store new item IDs for selective kitchen printing
+        data['new_item_ids'] = new_item_ids
         
     else:
         # Create new order with session ID for grouping
@@ -513,11 +547,30 @@ def api_create_order():
         # Add order items
         for item in data['items']:
             cursor.execute('''
-                INSERT INTO order_items (order_id, menu_item_id, quantity, price)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO order_items (order_id, menu_item_id, quantity, price, kitchen_printed)
+                VALUES (?, ?, ?, ?, 0)
             ''', (order_id, item['menu_item_id'], item['quantity'], item['price']))
     
     conn.commit()
+    
+    # Check if kitchen printing is enabled and print kitchen ticket for food items
+    try:
+        settings = conn.execute('SELECT key, value FROM settings').fetchall()
+        settings_dict = {row['key']: row['value'] for row in settings}
+        
+        print(f"DEBUG: Kitchen printing setting: {settings_dict.get('enable_kitchen_print')}")
+        
+        if settings_dict.get('enable_kitchen_print') == 'true':
+            print(f"DEBUG: Kitchen printing is enabled, calling print_kitchen_ticket for order {order_id}")
+            # Pass new_item_ids if available (for existing orders) or None (for new orders)
+            new_item_ids = data.get('new_item_ids', None)
+            print_kitchen_ticket(order_id, conn, new_item_ids)
+        else:
+            print(f"DEBUG: Kitchen printing is disabled or not set")
+    except Exception as e:
+        print(f"Kitchen printing error: {e}")
+        # Don't fail the order if kitchen printing fails
+    
     conn.close()
     
     return jsonify({'success': True, 'order_id': order_id})
@@ -533,7 +586,11 @@ def api_pay_order(order_id):
     order = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
     if not order:
         conn.close()
-        return jsonify({'error': 'Order not found'}), 404
+        return jsonify({
+            'success': False,
+            'error': 'Order not found or already fulfilled',
+            'message': 'This order is either not found or has already been paid/fulfilled.'
+        }), 404
     
     # If this is a table order, we need to finalize all pending orders for this table
     if order['table_id']:
@@ -813,13 +870,13 @@ def api_print_receipt(order_id):
     for row in settings_rows:
         settings[row['key']] = row['value']
     
-    # Get order details
+    # Get order details - only include orders that are still pending (not fulfilled/paid)
     order = conn.execute('''
         SELECT o.*, t.table_number, w.name as waiter_name
         FROM orders o
         LEFT JOIN tables t ON o.table_id = t.id
         LEFT JOIN waiters w ON o.waiter_id = w.id
-        WHERE o.id = ?
+        WHERE o.id = ? AND o.status = 'pending'
     ''', (order_id,)).fetchone()
     
     # Get order items
@@ -834,6 +891,14 @@ def api_print_receipt(order_id):
     
     if not order:
         return jsonify({'error': 'Order not found'}), 404
+    
+    # Check if there are any food items to print
+    if not items:
+        return jsonify({
+            'success': False,
+            'error': 'No food items found in this order',
+            'message': 'This order contains only drinks. Kitchen receipt not needed.'
+        }), 200
     
     # Generate HTML receipt content with dynamic restaurant information
     receipt_html = []
@@ -915,6 +980,199 @@ def api_print_receipt(order_id):
     return jsonify({
         'success': True,
         'receipt': ''.join(receipt_html)
+    })
+
+@app.route('/api/print-kitchen-receipt/<int:order_id>')
+@login_required
+def api_print_kitchen_receipt(order_id):
+    print(f"DEBUG: api_print_kitchen_receipt called with order_id={order_id}")
+    import sys
+    sys.stdout.flush()
+    
+    conn = get_db_connection()
+    
+    # Get restaurant settings
+    settings = {}
+    settings_rows = conn.execute('SELECT key, value FROM settings').fetchall()
+    for row in settings_rows:
+        settings[row['key']] = row['value']
+    
+    # Check if kitchen printing is enabled - respect the setting for manual printing too
+    if settings.get('enable_kitchen_print') != 'true':
+        conn.close()
+        return jsonify({
+            'success': False,
+            'error': 'Kitchen printing is disabled',
+            'message': 'Kitchen printing must be enabled in settings to generate kitchen receipts.'
+        }), 403
+    
+    # Get order details - only for pending orders
+    order = conn.execute('''
+        SELECT o.*, t.table_number, w.name as waiter_name
+        FROM orders o
+        LEFT JOIN tables t ON o.table_id = t.id
+        LEFT JOIN waiters w ON o.waiter_id = w.id
+        WHERE o.id = ? AND o.status = 'pending'
+    ''', (order_id,)).fetchone()
+    
+    if not order:
+        conn.close()
+        return jsonify({
+            'success': False,
+            'error': 'Order not found or already fulfilled',
+            'message': 'This order is either not found or has already been paid/fulfilled.'
+        }), 404
+    
+    # Check for force_reprint parameter to allow reprinting already printed items
+    force_reprint = request.args.get('force_reprint', 'false').lower() == 'true'
+    
+    # Get order items - filter for food items only (exclude drinks)
+    # If force_reprint is true, include all food items regardless of kitchen_printed status
+    if force_reprint:
+        items = conn.execute('''
+            SELECT oi.*, mi.name as item_name, mi.category
+            FROM order_items oi
+            JOIN menu_items mi ON oi.menu_item_id = mi.id
+            WHERE oi.order_id = ? 
+            AND LOWER(mi.category) NOT IN ('drink', 'drinks', 'beverage', 'beverages')
+        ''', (order_id,)).fetchall()
+        print(f"DEBUG: force_reprint=true, found {len(items)} items")
+        import sys
+        sys.stdout.flush()
+    else:
+        # Default behavior: only unprinted items
+        items = conn.execute('''
+            SELECT oi.*, mi.name as item_name, mi.category
+            FROM order_items oi
+            JOIN menu_items mi ON oi.menu_item_id = mi.id
+            WHERE oi.order_id = ? 
+            AND LOWER(mi.category) NOT IN ('drink', 'drinks', 'beverage', 'beverages')
+            AND oi.kitchen_printed = 0
+        ''', (order_id,)).fetchall()
+        print(f"DEBUG: force_reprint=false, found {len(items)} items")
+        import sys
+        sys.stdout.flush()
+    
+    # Check if there are any food items to print
+    if not items:
+        print(f"DEBUG: No items found, checking if force_reprint={force_reprint}")
+        # If force_reprint is true and we have no items, it means there are no food items at all
+        if force_reprint:
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': 'No food items found in this order',
+                'message': 'This order contains only drinks. Kitchen receipt not needed.'
+            }), 200
+        
+        # If no unprinted items found, check if there are any food items at all
+        all_food_items = conn.execute('''
+            SELECT oi.*, mi.name as item_name, mi.category
+            FROM order_items oi
+            JOIN menu_items mi ON oi.menu_item_id = mi.id
+            WHERE oi.order_id = ? 
+            AND LOWER(mi.category) NOT IN ('drink', 'drinks', 'beverage', 'beverages')
+        ''', (order_id,)).fetchall()
+        
+        if all_food_items:
+            # Check if any of the food items have actually been printed
+            printed_items = [item for item in all_food_items if item['kitchen_printed'] == 1]
+            
+            if printed_items:
+                # There are food items, and they've all been printed
+                conn.close()
+                return jsonify({
+                    'success': False,
+                    'error': 'All food items have already been printed to kitchen',
+                    'message': f'This order has {len(all_food_items)} food item(s), but {len(printed_items)} have already been printed to the kitchen. Use force_reprint=true parameter to reprint them.',
+                    'suggestion': f'To reprint: /api/print-kitchen-receipt/{order_id}?force_reprint=true',
+                    'food_items_count': len(all_food_items),
+                    'printed_items_count': len(printed_items)
+                }), 200
+            else:
+                # Food items exist but none are marked as printed - this shouldn't happen with the new fix
+                conn.close()
+                return jsonify({
+                    'success': False,
+                    'error': 'Kitchen printing issue detected',
+                    'message': f'This order has {len(all_food_items)} food item(s) but none are marked as printed. This may indicate a database issue.',
+                    'suggestion': 'Please contact system administrator',
+                    'food_items_count': len(all_food_items)
+                }), 200
+        else:
+            # No food items at all
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': 'No food items found in this order',
+                'message': 'This order contains only drinks. Kitchen receipt not needed.'
+            }), 200
+    
+    # Generate HTML kitchen receipt content
+    kitchen_html = []
+    kitchen_html.append('<div class="kitchen-receipt-content">')
+    
+    # Add logo image if logo exists - centered at top
+    if settings.get('restaurant_logo'):
+        logo_url = settings.get('restaurant_logo')
+        kitchen_html.append(f'<div class="logo-container" style="text-align: center; margin: 5px 0 10px 0;">')
+        kitchen_html.append(f'<img src="{logo_url}" alt="Restaurant Logo" style="max-width: 120px; max-height: 60px; object-fit: contain;">')
+        kitchen_html.append('</div>')
+    
+    # Header section - centered
+    kitchen_html.append('<div class="kitchen-header" style="text-align: center; margin-bottom: 10px;">')
+    kitchen_html.append(f'<div style="font-weight: bold; font-size: 14px; margin-bottom: 2px;">{settings.get("restaurant_name", "RESTAURANT POS")}</div>')
+    kitchen_html.append('</div>')
+    
+    # Kitchen order title
+    kitchen_html.append('<div style="text-align: center; font-weight: bold; margin: 10px 0 5px 0; font-size: 16px; background-color: #000; color: #fff; padding: 5px;">KITCHEN ORDER</div>')
+    kitchen_html.append('<div class="kitchen-body" style="font-size: 12px; line-height: 1.4;">')
+    kitchen_html.append(f'<div style="display: flex; justify-content: space-between; margin: 5px 0;"><span><strong>Order #:</strong></span><span style="font-weight: bold;">{order["id"]}</span></div>')
+    kitchen_html.append(f'<div style="display: flex; justify-content: space-between; margin: 5px 0;"><span><strong>Table:</strong></span><span style="font-weight: bold;">{order["table_number"] or "N/A"}</span></div>')
+    kitchen_html.append(f'<div style="display: flex; justify-content: space-between; margin: 5px 0;"><span><strong>Waiter:</strong></span><span style="font-weight: bold;">{order["waiter_name"] or "Unassigned"}</span></div>')
+    kitchen_html.append(f'<div style="display: flex; justify-content: space-between; margin: 5px 0;"><span><strong>Time:</strong></span><span style="font-weight: bold;">{datetime.now().strftime("%H:%M:%S")}</span></div>')
+    
+    # Items section with separator
+    kitchen_html.append('<div style="border-top: 2px dashed #000; margin: 10px 0; padding-top: 10px;">')
+    kitchen_html.append('<div style="font-weight: bold; font-size: 13px; margin-bottom: 8px;">ITEMS TO PREPARE:</div>')
+    
+    for item in items:
+        # Item name and quantity prominently displayed
+        kitchen_html.append(f'<div style="margin: 8px 0; padding: 5px; border: 1px solid #ccc; background-color: #f9f9f9;">')
+        kitchen_html.append(f'<div style="font-weight: bold; font-size: 14px;">{item["quantity"]:.0f}x {item["item_name"]}</div>')
+        if item['category']:
+            kitchen_html.append(f'<div style="font-size: 10px; color: #666; margin-top: 2px;">Category: {item["category"]}</div>')
+        kitchen_html.append('</div>')
+    
+    kitchen_html.append('</div>')
+    
+    # Footer section
+    kitchen_html.append('<div class="kitchen-footer" style="text-align: center; margin-top: 15px; font-size: 12px; font-weight: bold; border-top: 2px solid #000; padding-top: 10px;">')
+    kitchen_html.append('PREPARE WITH CARE')
+    kitchen_html.append('</div>')
+    
+    # Timestamp footer
+    kitchen_html.append('<div style="text-align: center; font-size: 10px; margin-top: 10px; line-height: 1.2;">')
+    kitchen_html.append(f'Printed: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+    kitchen_html.append('</div>')
+    
+    kitchen_html.append('</div>')
+    kitchen_html.append('</div>')
+    
+    # Mark items as printed to kitchen after successful generation
+    cursor = conn.cursor()
+    for item in items:
+        cursor.execute('''
+            UPDATE order_items 
+            SET kitchen_printed = 1 
+            WHERE id = ?
+        ''', (item['id'],))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'kitchen_receipt': ''.join(kitchen_html)
     })
 
 @app.route('/api/orders/<int:order_id>/receipt')
@@ -1159,6 +1417,352 @@ def api_table_receipt(table_id):
     conn.close()
     return ''.join(receipt_html)
 
+def print_kitchen_ticket(order_id, conn, new_item_ids=None):
+    """Generate and print kitchen ticket for food items only
+    
+    Args:
+        order_id: The order ID to print
+        conn: Database connection
+        new_item_ids: List of specific item IDs to print (for existing orders), 
+                     or None to print all unprinted items (for new orders)
+    """
+    try:
+        from printer_utils import KitchenPrinter
+        
+        # Get restaurant settings
+        settings = {}
+        settings_rows = conn.execute('SELECT key, value FROM settings').fetchall()
+        for row in settings_rows:
+            settings[row['key']] = row['value']
+        
+        # Check if kitchen printing is enabled
+        if settings.get('enable_kitchen_print') != 'true':
+            print(f"DEBUG: Kitchen printing is disabled, skipping kitchen ticket for order {order_id}")
+            return False
+        
+        # Get order details
+        order = conn.execute('''
+            SELECT o.*, t.table_number, w.name as waiter_name
+            FROM orders o
+            LEFT JOIN tables t ON o.table_id = t.id
+            LEFT JOIN waiters w ON o.waiter_id = w.id
+            WHERE o.id = ?
+        ''', (order_id,)).fetchone()
+        
+        if not order:
+            return
+        
+        # Get order items - filter based on new_item_ids if provided
+        if new_item_ids:
+            # For existing orders: only print newly added items
+            placeholders = ','.join('?' * len(new_item_ids))
+            food_items = conn.execute(f'''
+                SELECT oi.*, mi.name as item_name, mi.category
+                FROM order_items oi
+                JOIN menu_items mi ON oi.menu_item_id = mi.id
+                WHERE oi.id IN ({placeholders})
+                AND LOWER(mi.category) NOT IN ('drinks', 'beverages', 'drink', 'beverage')
+            ''', new_item_ids).fetchall()
+        else:
+            # For new orders: print all unprinted food items
+            food_items = conn.execute('''
+                SELECT oi.*, mi.name as item_name, mi.category
+                FROM order_items oi
+                JOIN menu_items mi ON oi.menu_item_id = mi.id
+                WHERE oi.order_id = ? 
+                AND LOWER(mi.category) NOT IN ('drinks', 'beverages', 'drink', 'beverage')
+                AND oi.kitchen_printed = 0
+            ''', (order_id,)).fetchall()
+        
+        # Only print if there are food items
+        if not food_items:
+            print(f"DEBUG: No food items found for order {order_id}, skipping kitchen printing")
+            return
+        
+        # Initialize kitchen printer with settings
+        printer = KitchenPrinter(
+            printer_name=settings.get('printer_name', ''),
+            paper_width=int(settings.get('printer_paper_width', 32)),
+            use_escpos=settings.get('printer_use_escpos', 'true').lower() == 'true'
+        )
+        
+        # Prepare order data for formatting
+        order_data = {
+            'id': order['id'],  # Use 'id' instead of 'order_id' to match printer_utils expectation
+            'order_id': order['id'],
+            'table_number': order['table_number'] or 'N/A',
+            'waiter_name': order['waiter_name'] or 'Unassigned',
+            'timestamp': datetime.now().strftime('%H:%M:%S'),
+            'date': datetime.now().strftime('%d/%m/%Y'),
+            'restaurant_name': settings.get('restaurant_name', 'Restaurant POS')
+        }
+        
+        # Add food items to order data
+        items_list = []
+        total_amount = 0
+        for item in food_items:
+            item_total = item['quantity'] * item['price']
+            total_amount += item_total
+            items_list.append({
+                'quantity': item['quantity'],
+                'item_name': item['item_name'],  # Use item_name to match printer_utils expectation
+                'name': item['item_name'],
+                'category': item['category'],
+                'price': item['price'],
+                'total': item_total,
+                'notes': ''  # Add notes field if available in your database
+            })
+
+        order_data['items'] = items_list
+        order_data['total_amount'] = total_amount
+        
+        # Format and print the kitchen ticket
+        save_to_file = settings.get('printer_save_to_file', 'true').lower() == 'true'
+        send_to_printer = settings.get('printer_send_to_printer', 'false').lower() == 'true'
+        
+        success = printer.print_kitchen_ticket(
+            order_data, 
+            items_list,  # Pass items_list directly instead of order_data['items']
+            settings,
+            save_to_file=save_to_file,
+            send_to_printer=send_to_printer
+        )
+        
+        if success:
+            print(f"DEBUG: Kitchen ticket successfully processed for order #{order_id}")
+            # Mark items as printed to kitchen after successful printing
+            cursor = conn.cursor()
+            if new_item_ids:
+                # Mark only the newly added items as printed
+                for item_id in new_item_ids:
+                    cursor.execute('''
+                        UPDATE order_items 
+                        SET kitchen_printed = 1 
+                        WHERE id = ?
+                    ''', (item_id,))
+            else:
+                # Mark all food items in the order as printed
+                for item in food_items:
+                    cursor.execute('''
+                        UPDATE order_items 
+                        SET kitchen_printed = 1 
+                        WHERE id = ?
+                    ''', (item['id'],))
+            conn.commit()
+        else:
+            print(f"DEBUG: Kitchen ticket processing failed for order #{order_id}")
+            # Fallback: Try to print using basic printer functionality
+            try:
+                # Create a simple formatted ticket for fallback printing
+                fallback_ticket = f"""
+KITCHEN ORDER
+================================
+
+ORDER DETAILS
+--------------------------------
+Order #: {order_data['order_id']}
+Table: {order_data['table_number']}
+Waiter: {order_data['waiter_name']}
+Time: {datetime.now().strftime('%H:%M:%S')}
+Date: {datetime.now().strftime('%d/%m/%Y')}
+
+ITEMS TO PREPARE
+--------------------------------
+"""
+                for item in order_data['items']:
+                    fallback_ticket += f"{item['quantity']}x {item['name']}\n"
+                
+                fallback_ticket += f"""
+ORDER SUMMARY
+--------------------------------
+Total Items: {len(order_data['items'])}
+Order Total: {order_data.get('total_amount', 0):.2f} Br
+
+================================
+       {settings.get('restaurant_name', 'Restaurant POS')}
+  Printed: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+"""
+                
+                # Try to send to printer using basic printer functionality
+                if printer.print_to_printer(fallback_ticket):
+                    print(f"DEBUG: Fallback printer succeeded for order #{order_id}")
+                else:
+                    # Last resort: save to file and notify
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    fallback_filename = f"kitchen_ticket_fallback_{timestamp}.txt"
+                    if printer.print_to_file(fallback_ticket, fallback_filename):
+                        print(f"DEBUG: Fallback saved to file {fallback_filename} for order #{order_id}")
+                    else:
+                        print(f"DEBUG: All printing methods failed for order #{order_id}")
+                        # Only then fall back to console output
+                        print(f"Kitchen Ticket Generated for Order #{order_id}")
+                        print("=" * 50)
+                        print(fallback_ticket)
+                        print("=" * 50)
+                        
+            except Exception as fallback_error:
+                print(f"DEBUG: Fallback printing failed: {fallback_error}")
+                # Final fallback to console
+                print(f"Kitchen Ticket Generated for Order #{order_id}")
+                print("=" * 50)
+                print(f"Order: {order_data['order_id']}, Table: {order_data['table_number']}")
+                for item in order_data['items']:
+                    print(f"{item['quantity']}x {item['name']}")
+                print("=" * 50)
+        
+    except ImportError as e:
+        print(f"Error importing printer utilities: {e}")
+        # Fallback to original HTML-based printing
+        print(f"DEBUG: Falling back to HTML-based kitchen printing for order #{order_id}")
+        _print_kitchen_ticket_fallback(order_id, conn)
+    except Exception as e:
+        print(f"Error generating kitchen ticket: {e}")
+        # Fallback to original HTML-based printing
+        _print_kitchen_ticket_fallback(order_id, conn)
+
+def _print_kitchen_ticket_fallback(order_id, conn):
+    """Fallback kitchen ticket printing using original HTML method"""
+    try:
+        # Get restaurant settings
+        settings = {}
+        settings_rows = conn.execute('SELECT key, value FROM settings').fetchall()
+        for row in settings_rows:
+            settings[row['key']] = row['value']
+        
+        # Check if kitchen printing is enabled
+        if settings.get('enable_kitchen_print') != 'true':
+            print(f"DEBUG: Kitchen printing is disabled, skipping fallback kitchen ticket for order {order_id}")
+            return False
+        
+        # Get order details
+        order = conn.execute('''
+            SELECT o.*, t.table_number, w.name as waiter_name
+            FROM orders o
+            LEFT JOIN tables t ON o.table_id = t.id
+            LEFT JOIN waiters w ON o.waiter_id = w.id
+            WHERE o.id = ?
+        ''', (order_id,)).fetchone()
+        
+        if not order:
+            return
+        
+        # Get order items - filter out drinks and only unprinted items
+        food_items = conn.execute('''
+            SELECT oi.*, mi.name as item_name, mi.category
+            FROM order_items oi
+            JOIN menu_items mi ON oi.menu_item_id = mi.id
+            WHERE oi.order_id = ? 
+            AND LOWER(mi.category) NOT IN ('drinks', 'beverages', 'drink', 'beverage')
+            AND oi.kitchen_printed = 0
+        ''', (order_id,)).fetchall()
+        
+        if not food_items:
+            return
+        
+        # Generate simple text-based kitchen ticket
+        ticket_lines = []
+        ticket_lines.append("=" * 40)
+        ticket_lines.append("         KITCHEN ORDER")
+        ticket_lines.append("=" * 40)
+        ticket_lines.append(f"Order #: {order['id']}")
+        ticket_lines.append(f"Table: {order['table_number'] or 'N/A'}")
+        ticket_lines.append(f"Waiter: {order['waiter_name'] or 'Unassigned'}")
+        ticket_lines.append(f"Time: {datetime.now().strftime('%H:%M:%S')}")
+        ticket_lines.append("-" * 40)
+        ticket_lines.append("ITEMS TO PREPARE:")
+        ticket_lines.append("-" * 40)
+        
+        for item in food_items:
+            ticket_lines.append(f"{item['quantity']}x {item['item_name']}")
+            ticket_lines.append(f"   Category: {item['category']}")
+            ticket_lines.append("")
+        
+        ticket_lines.append("-" * 40)
+        ticket_lines.append(f"Customer: Table {order['table_number'] or 'N/A'}")
+        ticket_lines.append(f"Printed: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        ticket_lines.append("=" * 40)
+        
+        kitchen_ticket_content = '\n'.join(ticket_lines)
+        
+        # Try to use basic printing functionality even in fallback mode
+        try:
+            # Try to save to file first
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            fallback_filename = f"kitchen_ticket_fallback_{timestamp}.txt"
+            
+            with open(fallback_filename, 'w', encoding='utf-8') as f:
+                f.write(kitchen_ticket_content)
+            print(f"Kitchen ticket saved to: {fallback_filename}")
+            
+            # Try to send to printer using Windows print command
+            if sys.platform == "win32":
+                try:
+                    import subprocess
+                    printer_name = settings.get('printer_name', '')
+                    if printer_name:
+                        cmd = f'print /D:"{printer_name}" "{fallback_filename}"'
+                    else:
+                        cmd = f'print "{fallback_filename}"'
+                    
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        print(f"Kitchen ticket sent to printer successfully (fallback mode)")
+                        # Mark items as printed after successful printing
+                        cursor = conn.cursor()
+                        for item in food_items:
+                            cursor.execute('''
+                                UPDATE order_items 
+                                SET kitchen_printed = 1 
+                                WHERE id = ?
+                            ''', (item['id'],))
+                        conn.commit()
+                    else:
+                        print(f"Printer command failed: {result.stderr}")
+                        print(f"Kitchen Ticket Generated for Order #{order_id}")
+                        print(kitchen_ticket_content)
+                except Exception as print_error:
+                    print(f"Fallback printing error: {print_error}")
+                    print(f"Kitchen Ticket Generated for Order #{order_id}")
+                    print(kitchen_ticket_content)
+            else:
+                # For non-Windows systems, try lp command
+                try:
+                    import subprocess
+                    printer_name = settings.get('printer_name', '')
+                    if printer_name:
+                        cmd = ['lp', '-d', printer_name, fallback_filename]
+                    else:
+                        cmd = ['lp', fallback_filename]
+                    
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        print(f"Kitchen ticket sent to printer successfully (fallback mode)")
+                        # Mark items as printed after successful printing
+                        cursor = conn.cursor()
+                        for item in food_items:
+                            cursor.execute('''
+                                UPDATE order_items 
+                                SET kitchen_printed = 1 
+                                WHERE id = ?
+                            ''', (item['id'],))
+                        conn.commit()
+                    else:
+                        print(f"Printer command failed: {result.stderr}")
+                        print(f"Kitchen Ticket Generated for Order #{order_id}")
+                        print(kitchen_ticket_content)
+                except Exception as print_error:
+                    print(f"Fallback printing error: {print_error}")
+                    print(f"Kitchen Ticket Generated for Order #{order_id}")
+                    print(kitchen_ticket_content)
+                    
+        except Exception as file_error:
+            print(f"Error saving fallback ticket: {file_error}")
+            print(f"Kitchen Ticket Generated for Order #{order_id}")
+            print(kitchen_ticket_content)
+        
+    except Exception as e:
+        print(f"Error in fallback kitchen ticket generation: {e}")
+
 # Settings API endpoints
 @app.route('/api/settings/restaurant', methods=['POST'])
 @login_required
@@ -1198,6 +1802,7 @@ def save_restaurant_settings():
         tax_rate = request.form.get('tax_rate')
         cbe_account = request.form.get('cbe_account')
         telebirr_account = request.form.get('telebirr_account')
+        enable_kitchen_print = request.form.get('enable_kitchen_print')
         
         # Update restaurant settings
         settings_map = {
@@ -1206,7 +1811,8 @@ def save_restaurant_settings():
             'restaurant_address': restaurant_address,
             'tax_rate': tax_rate,
             'cbe_account': cbe_account,
-            'telebirr_account': telebirr_account
+            'telebirr_account': telebirr_account,
+            'enable_kitchen_print': enable_kitchen_print
         }
         
         # Add logo URL if uploaded
@@ -1267,6 +1873,71 @@ def get_settings():
         conn.close()
         
         return jsonify({'success': True, 'settings': settings})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Printer API endpoints
+@app.route('/api/printer/test', methods=['POST'])
+@login_required
+def test_printer():
+    """Test printer functionality with current settings"""
+    try:
+        data = request.get_json()
+        printer_name = data.get('printer_name', '')
+        paper_width = data.get('paper_width', 48)
+        use_escpos = data.get('use_escpos', True)
+        
+        if not printer_name:
+            return jsonify({'success': False, 'error': 'Printer name is required'}), 400
+        
+        # Import printer utilities
+        try:
+            from printer_utils import KitchenPrinter
+            
+            # Initialize printer with test settings
+            printer = KitchenPrinter(
+                printer_name=printer_name,
+                paper_width=paper_width,
+                use_escpos=use_escpos,
+                save_to_file=True,  # Always save test prints to file
+                send_to_printer=data.get('send_to_printer', False),
+                auto_cut=data.get('auto_cut', True)
+            )
+            
+            # Create test ticket data
+            test_order = {
+                'id': 'TEST',
+                'table_number': 'TEST',
+                'waiter_name': 'Test User',
+                'items': [
+                    {'name': 'Test Food Item 1', 'quantity': 2, 'notes': 'Test preparation notes'},
+                    {'name': 'Test Food Item 2', 'quantity': 1, 'notes': 'No special requirements'}
+                ]
+            }
+            
+            # Format and print test ticket
+            formatted_ticket = printer.format_kitchen_ticket(test_order)
+            result = printer.print_ticket(formatted_ticket)
+            
+            if result['success']:
+                return jsonify({
+                    'success': True, 
+                    'message': 'Test print completed successfully',
+                    'file_path': result.get('file_path'),
+                    'printer_used': printer_name
+                })
+            else:
+                return jsonify({
+                    'success': False, 
+                    'error': result.get('error', 'Test print failed')
+                })
+                
+        except ImportError as e:
+            return jsonify({
+                'success': False, 
+                'error': f'Printer utilities not available: {str(e)}'
+            }), 500
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -1728,24 +2399,18 @@ def export_amount_csv():
         
         conn = get_db_connection()
         
-        # Get sold items data with their prices at time of sale and current stock
+        # Get sold items data with their prices at time of sale
         sold_items = conn.execute('''
             SELECT 
                 mi.name as item_name,
                 SUM(oi.quantity) as total_sold,
                 oi.price as sale_price,
-                mi.price as current_price,
-                SUM(oi.quantity * oi.price) as total_revenue,
-                COALESCE(
-                    (SELECT SUM(quantity) FROM order_items oi2 
-                     JOIN orders o2 ON oi2.order_id = o2.id 
-                     WHERE oi2.menu_item_id = mi.id), 0
-                ) as current_stock_level
+                SUM(oi.quantity * oi.price) as total_revenue
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN menu_items mi ON oi.menu_item_id = mi.id
             WHERE DATE(o.created_at) BETWEEN ? AND ?
-            GROUP BY mi.id, mi.name, oi.price, mi.price
+            GROUP BY mi.id, mi.name, oi.price
             ORDER BY total_sold DESC
         ''', (start_date, end_date)).fetchall()
         
@@ -1763,8 +2428,6 @@ def export_amount_csv():
             'Item Name', 
             'Quantity Sold', 
             'Price at Sale', 
-            'Current Price',
-            'Current Stock Level', 
             'Total Revenue Generated'
         ])
         
@@ -1776,14 +2439,12 @@ def export_amount_csv():
                 f"{item['item_name']} ({item['total_sold']} sold)",
                 item['total_sold'],
                 f"${item['sale_price']:.2f}",
-                f"${item['current_price']:.2f}",
-                item['current_stock_level'],
                 f"${item['total_revenue']:.2f}"
             ])
         
         # Add total row
         writer.writerow([])
-        writer.writerow(['TOTAL REVENUE', '', '', '', '', f"${total_revenue:.2f}"])
+        writer.writerow(['TOTAL REVENUE', '', '', f"${total_revenue:.2f}"])
         
         # Create response
         from flask import Response

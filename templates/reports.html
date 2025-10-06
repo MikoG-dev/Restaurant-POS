@@ -387,7 +387,8 @@ block content %}
   async function generateReport() {
     const startDate = document.getElementById("startDate").value;
     const endDate = document.getElementById("endDate").value;
-    const reportType = document.getElementById("reportType").value;
+    const reportTypeElement = document.getElementById("reportType");
+    const reportType = reportTypeElement ? reportTypeElement.value : "daily";
 
     if (!startDate || !endDate) {
       showError("Please select both start and end dates");

@@ -42,6 +42,15 @@ content %}
             >
               <i class="bi bi-person-gear me-2"></i>Users
             </a>
+            <!-- Printer Settings Navigation - Commented out
+            <a
+              href="#printer"
+              class="list-group-item list-group-item-action"
+              data-bs-toggle="pill"
+            >
+              <i class="bi bi-printer me-2"></i>Printer Settings
+            </a>
+            -->
             <!-- System Settings Navigation Link - Commented out for future use
             <a
               href="#system"
@@ -223,6 +232,31 @@ Downtown City, State 12345</textarea
                       />
                       <div class="form-text">
                         Telebirr phone number for digital payments.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Kitchen Printing Settings -->
+                <div class="row">
+                  <div class="col-md-12">
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          id="enableKitchenPrint"
+                          checked
+                        />
+                        <label
+                          class="form-check-label fw-semibold"
+                          for="enableKitchenPrint"
+                        >
+                          Enable Kitchen Order Printing
+                        </label>
+                        <div class="form-text">
+                          When enabled, food orders (excluding drinks) will automatically print to the kitchen with order details, customer information, and table number.
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -420,6 +454,105 @@ Downtown City, State 12345</textarea
                 <button type="submit" class="btn btn-primary">
                   <i class="bi bi-check-circle me-2"></i>Save System Settings
                 </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        -->
+
+        <!-- Printer Settings - Commented out
+        <div class="tab-pane fade" id="printer">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="card-title mb-0">Kitchen Printer Configuration</h5>
+            </div>
+            <div class="card-body">
+              <form id="printerForm">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="printerName" class="form-label fw-semibold">Printer Name</label>
+                      <select class="form-select" id="printerName">
+                        <option value="">Select Printer...</option>
+                      </select>
+                      <div class="form-text">Leave empty to use system default printer</div>
+                    </div>
+
+                    <div class="mb-3">
+                      <label for="paperWidth" class="form-label fw-semibold">Paper Width (characters)</label>
+                      <select class="form-select" id="paperWidth">
+                        <option value="32">32 chars (58mm thermal)</option>
+                        <option value="42">42 chars (80mm thermal)</option>
+                        <option value="48">48 chars (A4 width)</option>
+                      </select>
+                    </div>
+
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="useEscPos" checked>
+                        <label class="form-check-label" for="useEscPos">
+                          Use ESC/POS Commands
+                        </label>
+                        <div class="form-text">Enable for thermal printers with ESC/POS support</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="saveToFile" checked>
+                        <label class="form-check-label" for="saveToFile">
+                          Save Tickets to File
+                        </label>
+                        <div class="form-text">Keep backup copies of printed tickets</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="sendToPrinter" checked>
+                        <label class="form-check-label" for="sendToPrinter">
+                          Send to Printer
+                        </label>
+                        <div class="form-text">Automatically print to selected printer</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoCut" checked>
+                        <label class="form-check-label" for="autoCut">
+                          Auto Cut Paper
+                        </label>
+                        <div class="form-text">Automatically cut paper after printing (ESC/POS only)</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row mt-4">
+                  <div class="col-12">
+                    <div class="card bg-light">
+                      <div class="card-body">
+                        <h6 class="card-title">Printer Test</h6>
+                        <p class="card-text text-muted">Test your printer configuration with a sample kitchen ticket.</p>
+                        <button type="button" class="btn btn-outline-primary me-2" onclick="testPrinter()">
+                          <i class="bi bi-printer me-2"></i>Test Print
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="refreshPrinters()">
+                          <i class="bi bi-arrow-clockwise me-2"></i>Refresh Printers
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-4">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle me-2"></i>Save Printer Settings
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -1074,6 +1207,12 @@ Downtown City, State 12345</textarea
       "telebirr_account",
       document.getElementById("telebirrAccount").value
     );
+    
+    // Add kitchen printing setting
+    formData.append(
+      "enable_kitchen_print",
+      document.getElementById("enableKitchenPrint").checked ? "true" : "false"
+    );
 
     // Add logo file if selected
     const logoFile = document.getElementById("restaurantLogo").files[0];
@@ -1119,7 +1258,7 @@ Downtown City, State 12345</textarea
       printer_type: document.getElementById("printerType").value,
       auto_refresh: parseInt(document.getElementById("autoRefresh").value),
       enable_kitchen_print:
-        document.getElementById("enableKitchenPrint").checked,
+        document.getElementById("enableKitchenPrint").checked ? "true" : "false",
       enable_sounds: document.getElementById("enableSounds").checked,
     };
 
@@ -1419,6 +1558,7 @@ Downtown City, State 12345</textarea
     loadWaiters();
     loadUsers();
     loadSettings();
+    // loadPrinterSettings(); // Load printer settings - Commented out
   });
 
   async function loadSettings() {
@@ -1494,6 +1634,16 @@ Downtown City, State 12345</textarea
           }
         } catch (e) {
           console.warn("Error setting restaurant logo:", e);
+        }
+
+        // Load kitchen printing setting
+        try {
+          const enableKitchenPrintEl = document.getElementById("enableKitchenPrint");
+          if (enableKitchenPrintEl) {
+            enableKitchenPrintEl.checked = settings.enable_kitchen_print === 'true' || settings.enable_kitchen_print === true;
+          }
+        } catch (e) {
+          console.warn("Error setting kitchen printing:", e);
         }
 
         // Currency field is commented out in UI, so skip loading it
@@ -1783,5 +1933,197 @@ Downtown City, State 12345</textarea
       removeBtn.style.display = "inline-block";
     }
   }
+
+  // Printer Settings Functions - Commented out
+  /*
+  async function refreshPrinters() {
+    try {
+      const refreshBtn = document.getElementById('refreshPrintersBtn');
+      const originalText = refreshBtn.innerHTML;
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin me-2"></i>Refreshing...';
+      refreshBtn.disabled = true;
+
+      // Simulate printer discovery (in a real implementation, this would call a backend API)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const printerSelect = document.getElementById('printerName');
+      printerSelect.innerHTML = `
+        <option value="">Select Printer</option>
+        <option value="Microsoft Print to PDF">Microsoft Print to PDF</option>
+        <option value="Generic Thermal Printer">Generic Thermal Printer</option>
+        <option value="EPSON TM-T20">EPSON TM-T20</option>
+        <option value="Star TSP143">Star TSP143</option>
+      `;
+      
+      showSuccess('Printers refreshed successfully');
+      
+      refreshBtn.innerHTML = originalText;
+      refreshBtn.disabled = false;
+    } catch (error) {
+      console.error('Error refreshing printers:', error);
+      showError('Failed to refresh printers');
+      
+      const refreshBtn = document.getElementById('refreshPrintersBtn');
+      refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Refresh Printers';
+      refreshBtn.disabled = false;
+    }
+  }
+
+  async function testPrinter() {
+    try {
+      const testBtn = document.getElementById('testPrinterBtn');
+      const originalText = testBtn.innerHTML;
+      testBtn.innerHTML = '<i class="bi bi-printer me-2"></i>Testing...';
+      testBtn.disabled = true;
+
+      // Get current printer settings
+      const printerName = document.getElementById('printerName').value;
+      const paperWidth = document.getElementById('printerPaperWidth').value;
+      const useEscpos = document.getElementById('printerUseEscpos').checked;
+      
+      if (!printerName) {
+        showError('Please select a printer first');
+        testBtn.innerHTML = originalText;
+        testBtn.disabled = false;
+        return;
+      }
+
+      // Create test print data
+      const testData = {
+        printer_name: printerName,
+        paper_width: parseInt(paperWidth),
+        use_escpos: useEscpos,
+        test_print: true
+      };
+
+      // Send test print request to backend
+      const response = await fetch('/api/printer/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          showSuccess('Test print sent successfully! Check your printer.');
+        } else {
+          showError(result.error || 'Test print failed');
+        }
+      } else {
+        showError('Failed to send test print');
+      }
+
+      testBtn.innerHTML = originalText;
+      testBtn.disabled = false;
+    } catch (error) {
+      console.error('Error testing printer:', error);
+      showError('Failed to test printer');
+      
+      const testBtn = document.getElementById('testPrinterBtn');
+      testBtn.innerHTML = '<i class="bi bi-printer me-2"></i>Test Print';
+      testBtn.disabled = false;
+    }
+  }
+
+  async function savePrinterSettings() {
+    try {
+      const saveBtn = document.getElementById('savePrinterSettingsBtn');
+      const originalText = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Saving...';
+      saveBtn.disabled = true;
+
+      // Collect printer settings
+      const printerSettings = {
+        printer_name: document.getElementById('printerName').value,
+        printer_paper_width: document.getElementById('printerPaperWidth').value,
+        printer_use_escpos: document.getElementById('printerUseEscpos').checked,
+        printer_save_to_file: document.getElementById('printerSaveToFile').checked,
+        printer_send_to_printer: document.getElementById('printerSendToPrinter').checked,
+        printer_auto_cut: document.getElementById('printerAutoCut').checked
+      };
+
+      // Save each setting
+      for (const [key, value] of Object.entries(printerSettings)) {
+        const response = await fetch('/api/settings/system', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            key: key,
+            value: typeof value === 'boolean' ? (value ? 'true' : 'false') : value.toString()
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to save ${key}`);
+        }
+      }
+
+      showSuccess('Printer settings saved successfully');
+      
+      saveBtn.innerHTML = originalText;
+      saveBtn.disabled = false;
+    } catch (error) {
+      console.error('Error saving printer settings:', error);
+      showError('Failed to save printer settings');
+      
+      const saveBtn = document.getElementById('savePrinterSettingsBtn');
+      saveBtn.innerHTML = '<i class="bi bi-floppy me-2"></i>Save Settings';
+      saveBtn.disabled = false;
+    }
+  }
+
+  // Load printer settings when the page loads
+  async function loadPrinterSettings() {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.settings) {
+          const settings = result.settings;
+          
+          // Set printer settings values
+          if (settings.printer_name) {
+            document.getElementById('printerName').value = settings.printer_name;
+          }
+          if (settings.printer_paper_width) {
+            document.getElementById('printerPaperWidth').value = settings.printer_paper_width;
+          }
+          if (settings.printer_use_escpos !== undefined) {
+            document.getElementById('printerUseEscpos').checked = settings.printer_use_escpos === 'true';
+          }
+          if (settings.printer_save_to_file !== undefined) {
+            document.getElementById('printerSaveToFile').checked = settings.printer_save_to_file === 'true';
+          }
+          if (settings.printer_send_to_printer !== undefined) {
+            document.getElementById('printerSendToPrinter').checked = settings.printer_send_to_printer === 'true';
+          }
+          if (settings.printer_auto_cut !== undefined) {
+            document.getElementById('printerAutoCut').checked = settings.printer_auto_cut === 'true';
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading printer settings:', error);
+    }
+  }
+  */
+
+  // Add CSS for spinning animation
+  const style = document.createElement('style');
+  style.textContent = `
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
 </script>
 {% endblock %}

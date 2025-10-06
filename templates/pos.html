@@ -103,6 +103,14 @@ block content %}
           <button class="btn btn-success btn-lg" id="processOrderBtn" disabled>
             <i class="bi bi-plus-circle me-2"></i>Place Order
           </button>
+          <!-- <button
+            type="button"
+            class="btn btn-success"
+            id="printCurrentKitchenRecipeBtn"
+            disabled
+          >
+            <i class="bi bi-printer me-2"></i>Print Kitchen Recipe
+          </button> -->
           <button class="btn btn-outline-secondary" id="clearOrderBtn">
             <i class="bi bi-trash me-2"></i>Clear Order
           </button>
@@ -119,14 +127,14 @@ block content %}
                 <i class="bi bi-pause-circle me-1"></i>Hold
               </button> -->
             </div>
-            <div class="col-6">
+            <!-- <div class="col-6">
               <button
                 class="btn btn-outline-info btn-sm w-100"
                 id="printKitchenBtn"
               >
                 <i class="bi bi-printer me-1"></i>Kitchen
               </button>
-            </div>
+            </div> -->
           </div>
         </div>
       </div>
@@ -501,11 +509,26 @@ block content %}
 
   function updateProcessButton() {
     const processBtn = document.getElementById("processOrderBtn");
+    const printKitchenBtn = document.getElementById(
+      "printCurrentKitchenRecipeBtn"
+    );
     const tableSelected = document.getElementById("tableSelect").value;
     const waiterSelected = document.getElementById("waiterSelect").value;
     const hasItems = currentOrder.length > 0;
+    const hasFoodItems = currentOrder.some(
+      (item) =>
+        item.category &&
+        !["drink", "drinks", "beverage", "beverages"].includes(
+          item.category.toLowerCase()
+        )
+    );
 
     processBtn.disabled = !(tableSelected && waiterSelected && hasItems);
+    printKitchenBtn.disabled = !(
+      tableSelected &&
+      waiterSelected &&
+      hasFoodItems
+    );
   }
 
   function setupEventListeners() {
@@ -572,6 +595,13 @@ block content %}
         placeOrder();
       });
 
+    // Print current kitchen recipe
+    document
+      .getElementById("printCurrentKitchenRecipeBtn")
+      .addEventListener("click", function () {
+        printCurrentKitchenRecipe();
+      });
+
     // Confirm payment (only when payment modal is used)
     document
       .getElementById("confirmPaymentBtn")
@@ -628,6 +658,9 @@ block content %}
         const orderResult = await orderResponse.json();
         currentOrderId = orderResult.order_id;
 
+        // Check kitchen printing setting and print if enabled
+        await checkAndPrintKitchenRecipe();
+
         // Clear the current order after successful placement
         currentOrder = [];
         currentOrderId = null;
@@ -667,6 +700,9 @@ block content %}
             if (forceResponse.ok) {
               const orderResult = await forceResponse.json();
               currentOrderId = orderResult.order_id;
+
+              // Check kitchen printing setting and print if enabled
+              await checkAndPrintKitchenRecipe();
 
               // Clear the current order after successful placement
               currentOrder = [];
@@ -822,6 +858,326 @@ block content %}
     receipt += "\n================================";
 
     return receipt;
+  }
+
+  async function generateAndDisplayKitchenReceipt(orderId) {
+    try {
+      // Fetch HTML-formatted kitchen receipt from the API
+      const response = await fetch(`/api/print-kitchen-receipt/${orderId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        // Create and display kitchen receipt modal
+        displayKitchenReceiptModal(result.kitchen_receipt);
+
+        // Automatically print the kitchen receipt
+        setTimeout(() => {
+          printKitchenReceipt(result.kitchen_receipt);
+        }, 500); // Small delay to ensure modal is rendered
+      } else {
+        console.error("Failed to generate kitchen receipt:", result.error);
+
+        // Check if this is a beverage-only order
+        if (result.message && result.message.includes("only drinks")) {
+          // Silently skip kitchen receipt for beverage-only orders
+          console.log(
+            "Order contains only beverages, skipping kitchen receipt"
+          );
+          return;
+        }
+
+        // Check if kitchen printing is disabled
+        if (response.status === 403 && result.message) {
+          // Show user-friendly message about disabled kitchen printing
+          alert(result.message);
+        } else {
+          // alert('Failed to generate kitchen receipt');
+        }
+      }
+    } catch (error) {
+      console.error("Error generating kitchen receipt:", error);
+      alert("Error generating kitchen receipt");
+    }
+  }
+
+  function displayKitchenReceiptModal(kitchenReceiptHtml) {
+    // Create modal HTML
+    const modalHtml = `
+      <div class="modal fade" id="kitchenReceiptModal" tabindex="-1" role="dialog" aria-labelledby="kitchenReceiptModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="kitchenReceiptModalLabel">Kitchen Order</h5>
+              <div class="d-flex">
+              <button type="button" class="btn btn-secondary text-white mr-2" id="printKitchenReceiptBtn">
+                   <i class="fas fa-print"></i>
+              </button>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+            </div>
+            <div class="modal-body">
+              <div id="kitchenReceiptContent" style="font-family: 'Courier New', monospace; white-space: pre-wrap; line-height: 1.4;">
+                ${kitchenReceiptHtml}
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Remove existing modal if present
+    const existingModal = document.getElementById("kitchenReceiptModal");
+    if (existingModal) {
+      existingModal.remove();
+    }
+
+    // Add modal to body
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    // Show modal using vanilla JavaScript
+    const modal = new bootstrap.Modal(
+      document.getElementById("kitchenReceiptModal")
+    );
+    modal.show();
+
+    // Add explicit close button functionality
+    const closeButton = document.querySelector("#kitchenReceiptModal .close");
+    if (closeButton) {
+      closeButton.addEventListener("click", function () {
+        modal.hide();
+      });
+    }
+
+    // Add print button functionality
+    const printButton = document.querySelector(
+      "#kitchenReceiptModal #printKitchenReceiptBtn"
+    );
+    if (printButton) {
+      printButton.addEventListener("click", function () {
+        printKitchenReceipt(kitchenReceiptHtml);
+      });
+    }
+  }
+
+  function printKitchenReceipt(kitchenReceiptHtml) {
+    // Create a new window for printing
+    const printWindow = window.open("", "_blank");
+
+    // Write the kitchen receipt content to the new window
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Kitchen Order</title>
+        <style>
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 10px;
+            background: white;
+          }
+          .kitchen-receipt-content {
+            max-width: 300px;
+            margin: 0 auto;
+          }
+          @media print {
+            body {
+              margin: 0;
+              padding: 5px;
+            }
+            .kitchen-receipt-content {
+              max-width: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        ${kitchenReceiptHtml}
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+
+    // Wait for content to load, then print
+    printWindow.onload = function () {
+      printWindow.print();
+      printWindow.close();
+    };
+  }
+
+  async function checkAndPrintKitchenRecipe() {
+    try {
+      // Check kitchen printing setting status
+      const settingResponse = await fetch("/api/kitchen-setting-status");
+
+      if (settingResponse.ok) {
+        const settingResult = await settingResponse.json();
+
+        if (settingResult.success && settingResult.enabled) {
+          // Kitchen printing is enabled, use the same logic as the print kitchen recipe button
+          const tableId = document.getElementById("tableSelect").value;
+          const waiterId = document.getElementById("waiterSelect").value;
+
+          if (!tableId || !waiterId) {
+            console.log(
+              "Table or waiter not selected, skipping kitchen recipe printing"
+            );
+            return;
+          }
+
+          // Filter only food items from current order (before it gets cleared)
+          const foodItems = currentOrder.filter(
+            (item) =>
+              item.category &&
+              !["drink", "drinks", "beverage", "beverages"].includes(
+                item.category.toLowerCase()
+              )
+          );
+
+          if (foodItems.length === 0) {
+            console.log(
+              "No food items in order, skipping kitchen recipe printing"
+            );
+            return;
+          }
+
+          const table = tables.find((t) => t.id == tableId);
+          const waiter = waiters.find((w) => w.id == waiterId);
+
+          // Generate kitchen recipe HTML using the same function as the manual button
+          const kitchenRecipeHtml = generateCurrentKitchenRecipeHtml(
+            foodItems,
+            table,
+            waiter
+          );
+
+          // Display the kitchen recipe modal
+          displayKitchenReceiptModal(kitchenRecipeHtml);
+
+          // Automatically print after a short delay
+          setTimeout(() => {
+            printKitchenReceipt(kitchenRecipeHtml);
+          }, 500);
+
+          console.log(
+            "Kitchen recipe printed automatically after order placement"
+          );
+        } else {
+          console.log(
+            "Kitchen printing is disabled, skipping automatic kitchen recipe printing"
+          );
+        }
+      } else {
+        console.error("Failed to check kitchen printing setting status");
+      }
+    } catch (error) {
+      console.error("Error checking kitchen printing setting:", error);
+      // Don't fail the order if kitchen printing check fails
+    }
+  }
+
+  function printCurrentKitchenRecipe() {
+    try {
+      const tableId = document.getElementById("tableSelect").value;
+      const waiterId = document.getElementById("waiterSelect").value;
+
+      if (!tableId || !waiterId) {
+        alert(
+          "Please select both table and waiter before printing kitchen recipe."
+        );
+        return;
+      }
+
+      // Filter only food items from current order
+      const foodItems = currentOrder.filter(
+        (item) =>
+          item.category &&
+          !["drink", "drinks", "beverage", "beverages"].includes(
+            item.category.toLowerCase()
+          )
+      );
+
+      if (foodItems.length === 0) {
+        alert("No food items in current order to print kitchen recipe.");
+        return;
+      }
+
+      const table = tables.find((t) => t.id == tableId);
+      const waiter = waiters.find((w) => w.id == waiterId);
+
+      // Generate kitchen recipe HTML
+      const kitchenRecipeHtml = generateCurrentKitchenRecipeHtml(
+        foodItems,
+        table,
+        waiter
+      );
+
+      // Display and print the kitchen recipe
+      displayKitchenReceiptModal(kitchenRecipeHtml);
+
+      // Automatically print
+      setTimeout(() => {
+        printKitchenReceipt(kitchenRecipeHtml);
+      }, 500);
+    } catch (error) {
+      console.error("Error printing current kitchen recipe:", error);
+      alert("Error printing kitchen recipe. Please try again.");
+    }
+  }
+
+  function generateCurrentKitchenRecipeHtml(foodItems, table, waiter) {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const dateString = now.toLocaleDateString();
+
+    let html = `
+      <div class="kitchen-receipt-content">
+        <div style="text-align: center; padding-bottom: 5px; margin-bottom: 5px;">
+          <h2 style="margin: 0; font-size: 18px;">KITCHEN RECIPE</h2>
+          <p style="margin: 3px 0; font-size: 11px;">${dateString} ${timeString}</p>
+        </div>
+        
+        <div style="margin-bottom: 5px;">
+          <p style="margin: 2px 0;"><strong>Table:</strong> ${
+            table?.table_number || "N/A"
+          }</p>
+          <p style="margin: 2px 0;"><strong>Waiter:</strong> ${
+            waiter?.name || "N/A"
+          }</p>
+        </div>
+        
+        <div style="border-top: 1px solid #000; padding-top: 5px;">
+          <h3 style="margin: 0 0 5px 0; font-size: 14px;">FOOD ITEMS:</h3>
+    `;
+
+    foodItems.forEach((item) => {
+      html += `
+        <div style="margin-bottom: 4px; padding: 5px;">
+          <p style="margin: 0; font-weight: bold; font-size: 13px;">${item.quantity}x ${item.name}</p>
+         
+        </div>
+      `;
+    });
+
+    // html += `
+    //     </div>
+
+    //     <div style="border-top: 2px solid #000; margin-top: 15px; padding-top: 10px; text-align: center;">
+    //       <p style="margin: 0; font-size: 11px; font-style: italic;">
+    //         This is a preview recipe based on current order contents.<br>
+    //         Items will be marked as printed only after order is placed.
+    //       </p>
+    //     </div>
+    //   </div>
+    // `;
+
+    return html;
   }
 </script>
 {% endblock %}
