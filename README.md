@@ -2,6 +2,19 @@
 
 A lightweight, fast, and beautiful restaurant management system designed to run locally on older hardware. Built with Python Flask backend, SQLite database, and responsive Bootstrap frontend.
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="screenshots/1.png" width="45%" />
+  <img src="screenshots/2.png" width="45%" />
+</p>
+
+<p align="center">
+  <img src="screenshots/3.png" width="45%" />
+  <img src="screenshots/4.png" width="45%" />
+</p>
+
+
 ## Features
 
 ### 🏪 Core Functionality
