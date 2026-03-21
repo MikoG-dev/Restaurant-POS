@@ -1,0 +1,349 @@
+{% extends "base.html" %} {% block title %}Dashboard - Restaurant Cashier
+System{% endblock %} {% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <!-- Sidebar -->
+    <div class="col-md-3 col-lg-2 sidebar p-3">
+      <div class="d-flex flex-column gap-2">
+        <a href="/pos" class="btn btn-primary btn-pos">
+          <i class="bi bi-plus-circle me-2"></i>New Order
+        </a>
+        <a href="/menu" class="btn btn-outline-primary btn-pos">
+          <i class="bi bi-menu-button-wide me-2"></i>Menu
+        </a>
+        <a href="/orders" class="btn btn-outline-primary btn-pos">
+          <i class="bi bi-receipt me-2"></i>Orders
+        </a>
+        <a href="/reports" class="btn btn-outline-primary btn-pos">
+          <i class="bi bi-graph-up me-2"></i>Reports
+        </a>
+        <a href="/settings" class="btn btn-outline-primary btn-pos">
+          <i class="bi bi-gear me-2"></i>Settings
+        </a>
+      </div>
+
+      <hr class="my-4" />
+
+      <div class="text-center">
+        <h6 class="text-muted mb-3">Quick Stats</h6>
+        <div class="d-flex flex-column gap-2">
+          <div class="bg-success bg-opacity-10 p-2 rounded">
+            <small class="text-success fw-semibold">Today's Orders</small>
+            <div class="h5 mb-0" id="todayOrders">0</div>
+          </div>
+          <div class="bg-primary bg-opacity-10 p-2 rounded">
+            <small class="text-primary fw-semibold">Today's Revenue</small>
+            <div class="h5 mb-0" id="todayRevenue">$0.00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="col-md-9 col-lg-10 main-content p-4">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 class="fw-bold mb-1">Dashboard</h2>
+          <p class="text-muted mb-0">Welcome back, {{ session.username }}!</p>
+        </div>
+        <div class="text-end">
+          <div class="text-muted small">Current Time</div>
+          <div class="fw-semibold" id="currentTime"></div>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <div class="stats-card p-4 h-100">
+            <div class="d-flex align-items-center">
+              <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
+                <i class="bi bi-receipt text-primary fs-4"></i>
+              </div>
+              <div>
+                <div class="text-muted small">Today's Orders</div>
+                <div class="h4 fw-bold mb-0" id="statsOrders">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+          <div class="stats-card p-4 h-100">
+            <div class="d-flex align-items-center">
+              <div class="bg-success bg-opacity-10 p-3 rounded-circle me-3">
+                <i class="bi bi-currency-dollar text-success fs-4"></i>
+              </div>
+              <div>
+                <div class="text-muted small">Today's Revenue</div>
+                <div class="h4 fw-bold mb-0" id="statsRevenue">$0.00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+          <div class="stats-card p-4 h-100">
+            <div class="d-flex align-items-center">
+              <div class="bg-warning bg-opacity-10 p-3 rounded-circle me-3">
+                <i class="bi bi-table text-warning fs-4"></i>
+              </div>
+              <div>
+                <div class="text-muted small">Active Tables</div>
+                <div class="h4 fw-bold mb-0" id="activeTables">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+          <div class="stats-card p-4 h-100">
+            <div class="d-flex align-items-center">
+              <div class="bg-info bg-opacity-10 p-3 rounded-circle me-3">
+                <i class="bi bi-box-seam text-info fs-4"></i>
+              </div>
+              <div>
+                <div class="text-muted small">Total Items Sold</div>
+                <div class="h4 fw-bold mb-0" id="statsTotalItems">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions Row -->
+      <div class="row mb-4">
+        <div class="col-md-8 mb-3">
+          <div class="stats-card p-4 h-100">
+            <h5 class="fw-semibold mb-3">Quick Actions</h5>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <a
+                  href="/pos"
+                  class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center"
+                >
+                  <i class="bi bi-plus-circle me-2"></i>
+                  New Order
+                </a>
+              </div>
+              <div class="col-md-6">
+                <a
+                  href="/menu"
+                  class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center"
+                >
+                  <i class="bi bi-menu-button-wide me-2"></i>
+                  Manage Menu
+                </a>
+              </div>
+              <div class="col-md-6">
+                <a
+                  href="/orders"
+                  class="btn btn-outline-success btn-lg w-100 d-flex align-items-center justify-content-center"
+                >
+                  <i class="bi bi-receipt me-2"></i>
+                  View Orders
+                </a>
+              </div>
+              <div class="col-md-6">
+                <a
+                  href="/reports"
+                  class="btn btn-outline-info btn-lg w-100 d-flex align-items-center justify-content-center"
+                >
+                  <i class="bi bi-graph-up me-2"></i>
+                  Reports
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+          <div class="stats-card p-4 h-100">
+            <h5 class="fw-semibold mb-3">Top Items Today</h5>
+            <div id="topItemsList">
+              <div class="text-center text-muted py-4">
+                <i class="bi bi-star fs-1 d-block mb-2 opacity-50"></i>
+                <p class="mb-0">No sales data yet</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Orders -->
+      <div class="row">
+        <div class="col-12">
+          <div class="stats-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-semibold mb-0">Recent Orders</h5>
+              <a href="/orders" class="btn btn-outline-primary btn-sm"
+                >View All</a
+              >
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th>Order #</th>
+                    <th>Table</th>
+                    <th>Waiter</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="recentOrdersTable">
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                      <i class="bi bi-receipt fs-1 d-block mb-2 opacity-50"></i>
+                      No orders yet today
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  // Update current time
+  function updateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString("en-US", {
+      hour12: true,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const dateString = now.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    document.getElementById(
+      "currentTime"
+    ).textContent = `${timeString} - ${dateString}`;
+  }
+
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // Update top items list
+  function updateTopItemsList(topItems) {
+    const topItemsList = document.getElementById("topItemsList");
+
+    if (topItems.length === 0) {
+      topItemsList.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-star fs-1 d-block mb-2 opacity-50"></i>
+                    <p class="mb-0">No sales data yet</p>
+                </div>
+            `;
+      return;
+    }
+
+    topItemsList.innerHTML = topItems
+      .map(
+        (item, index) => `
+            <div class="d-flex justify-content-between align-items-center mb-2 ${
+              index < 3 ? "border-bottom pb-2" : ""
+            }">
+                <div>
+                    <div class="fw-semibold">${item.name}</div>
+                    <small class="text-muted">${item.quantity} sold</small>
+                </div>
+                <div class="badge bg-primary">#${index + 1}</div>
+            </div>
+        `
+      )
+      .join("");
+  }
+
+  // Load dashboard data
+  async function loadDashboardData() {
+    try {
+      const response = await fetch("/api/dashboard-stats");
+      const data = await response.json();
+
+      // Update stats
+      document.getElementById("statsOrders").textContent =
+        data.todayOrders || 0;
+      document.getElementById("statsRevenue").textContent =
+        "$" + (data.todayRevenue || 0).toFixed(2);
+      document.getElementById("activeTables").textContent =
+        data.activeTables || 0;
+      document.getElementById("statsTotalItems").textContent =
+        data.totalItemsSold || 0;
+
+      // Update sidebar quick stats
+      document.getElementById("todayOrders").textContent =
+        data.todayOrders || 0;
+      document.getElementById("todayRevenue").textContent =
+        "$" + (data.todayRevenue || 0).toFixed(2);
+
+      // Update top items list
+      updateTopItemsList(data.topItems || []);
+
+      // Update recent orders table
+      updateRecentOrdersTable(data.recentOrders || []);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    }
+  }
+
+  function updateRecentOrdersTable(orders) {
+    const tbody = document.getElementById("recentOrdersTable");
+
+    if (orders.length === 0) {
+      tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="bi bi-receipt fs-1 d-block mb-2 opacity-50"></i>
+                        No orders yet today
+                    </td>
+                </tr>
+            `;
+      return;
+    }
+
+    tbody.innerHTML = orders
+      .map(
+        (order) => `
+            <tr>
+                <td><strong>#${order.id}</strong></td>
+                <td>Table ${order.table_number}</td>
+                <td>${order.waiter_name}</td>
+                <td>${order.item_count} items</td>
+                <td><strong>$${order.total_amount.toFixed(2)}</strong></td>
+                <td>
+                    <span class="badge ${
+                      order.status === "paid" ? "bg-success" : "bg-warning"
+                    }">
+                        ${order.status}
+                    </span>
+                </td>
+                <td>${new Date(order.created_at).toLocaleTimeString("en-US", {
+                  hour12: true,
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}</td>
+            </tr>
+        `
+      )
+      .join("");
+  }
+
+  // Initialize everything when page loads
+  document.addEventListener("DOMContentLoaded", function () {
+    loadDashboardData();
+
+    // Refresh data every 30 seconds
+    setInterval(loadDashboardData, 30000);
+  });
+</script>
+{% endblock %}

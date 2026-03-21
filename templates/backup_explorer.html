@@ -1,0 +1,376 @@
+{% extends "base.html" %} 
+{% block title %}Backup Explorer - {{ filename }}{% endblock %} 
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-bold mb-1">
+        <i class="bi bi-search me-2 text-primary"></i>Backup Explorer
+      </h2>
+      <p class="text-muted mb-0">Exploring historical data from: <span class="badge bg-secondary">{{ filename }}</span></p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/settings#backup" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Backups
+      </a>
+      <button class="btn btn-primary" onclick="window.location.reload()">
+        <i class="bi bi-arrow-clockwise me-2"></i>Refresh Data
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row mb-4">
+    <!-- Date Range & Filters Filter -->
+    <div class="col-12">
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <form id="explorerFilterForm" onsubmit="event.preventDefault(); loadExplorerData();">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-2">
+                <label for="startDate" class="form-label fw-semibold">Start Date</label>
+                <input type="date" class="form-control" id="startDate" />
+              </div>
+              <div class="col-md-2">
+                <label for="endDate" class="form-label fw-semibold">End Date</label>
+                <input type="date" class="form-control" id="endDate" />
+              </div>
+              <div class="col-md-3">
+                <label for="paymentMethod" class="form-label fw-semibold">Payment Method</label>
+                <select class="form-select" id="paymentMethod">
+                  <option value="">All Methods</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="digital">Digital/Other</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="waiterFilter" class="form-label fw-semibold">Waiter</label>
+                <select class="form-select" id="waiterFilter">
+                  <option value="">All Waiters</option>
+                </select>
+              </div>
+              <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                  <i class="bi bi-filter me-2"></i>Filter
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="resetFilters()">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card bg-primary text-white shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Total Revenue</h6>
+              <h3 class="mb-0" id="totalRevenue">---</h3>
+            </div>
+            <i class="bi bi-currency-dollar fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-success text-white shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Total Orders</h6>
+              <h3 class="mb-0" id="totalOrdersCount">---</h3>
+            </div>
+            <i class="bi bi-receipt fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-info text-white shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Average Order</h6>
+              <h3 class="mb-0" id="avgOrderValue">---</h3>
+            </div>
+            <i class="bi bi-graph-up fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-warning text-white shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+              <h6 class="card-title mb-0">Items Sold</h6>
+              <h3 class="mb-0" id="totalItemsSold">---</h3>
+            </div>
+            <i class="bi bi-box fs-1 opacity-75"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <!-- Revenue Trend -->
+    <div class="col-md-8">
+      <div class="card h-100 shadow-sm">
+        <div class="card-header bg-white border-bottom">
+          <h5 class="card-title mb-0">Revenue Trend (Daily)</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="revenueChart" height="150"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- Payment Methods -->
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm">
+        <div class="card-header bg-white border-bottom">
+          <h5 class="card-title mb-0">Payment Methods</h5>
+        </div>
+        <div class="card-body d-flex align-items-center">
+          <canvas id="paymentChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <!-- Top Items -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom">
+          <h5 class="card-title mb-0">Top Selling Items</h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Item</th>
+                  <th class="text-end">Sold</th>
+                  <th class="text-end">Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="topItemsTable">
+                <tr>
+                  <td colspan="3" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2">Loading performance data...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Waiter Performance -->
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom">
+          <h5 class="card-title mb-0">Waiter Performance</h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Waiter</th>
+                  <th class="text-end">Orders</th>
+                  <th class="text-end">Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="waiterPerformanceTable">
+                <tr>
+                  <td colspan="3" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="ms-2">Loading performace data...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Persistent database path for JS -->
+<input type="hidden" id="dbPath" value="{{ db_path }}">
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let revenueChart, paymentChart;
+
+  document.addEventListener("DOMContentLoaded", function () {
+    loadExplorerData();
+  });
+
+  async function loadExplorerData() {
+    const dbPath = document.getElementById('dbPath').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const waiterId = document.getElementById('waiterFilter').value;
+
+    let url = `/api/backup-explorer/stats?db_path=${encodeURIComponent(dbPath)}`;
+    if (startDate && endDate) url += `&start_date=${startDate}&end_date=${endDate}`;
+    if (paymentMethod) url += `&payment_method=${paymentMethod}`;
+    if (waiterId) url += `&waiter_id=${waiterId}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.error) {
+        alert("Error loading backup data: " + data.error);
+        return;
+      }
+
+      // Populate waiters if not already done
+      const waiterSelect = document.getElementById('waiterFilter');
+      if (waiterSelect.options.length <= 1 && data.waiters) {
+        data.waiters.forEach(w => {
+          const option = document.createElement('option');
+          option.value = w.id;
+          option.textContent = w.name;
+          waiterSelect.appendChild(option);
+        });
+      }
+
+      updateSummaryCards(data);
+      renderRevenueChart(data.revenueTrend);
+      renderPaymentChart(data.paymentMethods);
+      renderTopItemsTable(data.topItems);
+      renderWaiterPerformanceTable(data.waiterPerformance);
+
+    } catch (error) {
+      console.error("Error loading explorer data:", error);
+    }
+  }
+
+  function resetFilters() {
+    document.getElementById('explorerFilterForm').reset();
+    loadExplorerData();
+  }
+
+  function updateSummaryCards(data) {
+    document.getElementById('totalRevenue').textContent = formatCurrency(data.totalRevenue);
+    document.getElementById('totalOrdersCount').textContent = data.totalOrders;
+    document.getElementById('avgOrderValue').textContent = formatCurrency(data.avgOrderValue);
+    document.getElementById('totalItemsSold').textContent = data.totalItems || 0;
+  }
+
+  function renderRevenueChart(trend) {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    
+    if (revenueChart) revenueChart.destroy();
+
+    const labels = trend.map(t => t.date);
+    const scores = trend.map(t => t.revenue);
+
+    revenueChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Daily Revenue',
+          data: scores,
+          borderColor: '#0d6efd',
+          backgroundColor: 'rgba(13, 110, 253, 0.1)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  function renderPaymentChart(methods) {
+    const ctx = document.getElementById('paymentChart').getContext('2d');
+    
+    if (paymentChart) paymentChart.destroy();
+
+    const labels = methods.map(m => m.payment_method.charAt(0).toUpperCase() + m.payment_method.slice(1));
+    const values = methods.map(m => m.total);
+
+    paymentChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom' }
+        }
+      }
+    });
+  }
+
+  function renderTopItemsTable(items) {
+    const tbody = document.getElementById('topItemsTable');
+    if (!items || items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No item data found in this backup</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => `
+      <tr>
+        <td class="fw-semibold">${item.name}</td>
+        <td class="text-end">${item.quantity}</td>
+        <td class="text-end">${formatCurrency(item.revenue)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderWaiterPerformanceTable(waiters) {
+    const tbody = document.getElementById('waiterPerformanceTable');
+    if (!waiters || waiters.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No waiter data found in this backup</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = waiters.map(w => `
+      <tr>
+        <td class="fw-semibold">${w.name}</td>
+        <td class="text-end">${w.orders}</td>
+        <td class="text-end">${formatCurrency(w.revenue)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-ET', {
+      style: 'currency',
+      currency: 'ETB',
+    }).format(amount || 0);
+  }
+</script>
+{% endblock %}
